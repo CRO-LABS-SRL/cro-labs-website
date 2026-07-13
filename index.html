@@ -297,6 +297,46 @@
       text-align: center;
       font-size: 0.94rem;
     }
+    .contact-form {
+      display: grid;
+      gap: 1rem;
+      margin-top: 1.4rem;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+    .form-group label {
+      font-size: 0.88rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .form-group input,
+    .form-group textarea {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 0.85rem 1rem;
+      color: var(--text);
+      font-family: "Manrope", sans-serif;
+      font-size: 0.97rem;
+      outline: none;
+      transition: border-color 180ms ease;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus {
+      border-color: var(--accent);
+    }
+    .form-group textarea {
+      min-height: 130px;
+      resize: vertical;
+    }
     @media (max-width: 860px) {
       .hero {
         grid-template-columns: 1fr;
@@ -310,6 +350,9 @@
     @media (max-width: 640px) {
       main {
         padding-inline: 1rem;
+      }
+      .form-row {
+        grid-template-columns: 1fr;
       }
       .hero-copy h1 {
         max-width: none;
@@ -515,8 +558,39 @@
       </div>
     </section>
 
+    <section id="contatti" class="section" aria-label="Contatti">
+      <div class="section-heading">
+        <div>
+          <span class="pill">Contatti</span>
+          <h2>Scrivici, ti rispondiamo presto.</h2>
+        </div>
+        <p>Hai un progetto in mente, vuoi collaborare o semplicemente saperne di piu? Lascia un messaggio.</p>
+      </div>
+      <form class="contact-form" action="https://formspree.io/f/mykrywvn" method="post">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="nome">Nome</label>
+            <input type="text" id="nome" name="nome" placeholder="Il tuo nome" required>
+          </div>
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="la-tua@email.com" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="messaggio">Messaggio</label>
+          <textarea id="messaggio" name="messaggio" placeholder="Cosa vorresti dirci?" required></textarea>
+        </div>
+        <div>
+          <button type="submit" class="button button-primary">Invia messaggio</button>
+        </div>
+      </form>
+    </section>
+
     <footer>
       CRO Labs sviluppa prodotti digitali partendo da problemi reali di turismo, hospitality e intrattenimento per trasformarli in esperienze piu semplici da vivere.
+      <br><br>
+      CRO Labs S.r.l. &mdash; P.IVA 11118861217
     </footer>
   </main>
 </body>
