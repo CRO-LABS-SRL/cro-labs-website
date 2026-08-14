@@ -209,6 +209,33 @@
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 1rem;
     }
+    .portfolio-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+    .portfolio-card {
+      display: flex;
+      min-height: 100%;
+      flex-direction: column;
+    }
+    .portfolio-card p {
+      flex: 1;
+    }
+    .portfolio-details {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .portfolio-details span {
+      padding: 0.38rem 0.65rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.03);
+      font-size: 0.76rem;
+    }
     .service-grid,
     .story-grid {
       display: grid;
@@ -303,12 +330,36 @@
       margin-top: 1.4rem;
     }
     .contact-status {
-      min-height: 1.5rem;
+      display: none;
+      margin: 0;
+      padding: 1rem 1.1rem;
+      border: 1px solid var(--line);
+      border-radius: 16px;
       color: var(--muted);
-      font-size: 0.9rem;
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 0.95rem;
+      font-weight: 700;
+      line-height: 1.5;
     }
-    .contact-status.is-success { color: #77d8b3; }
-    .contact-status.is-error { color: #ff9b91; }
+    .contact-status:not(:empty) {
+      display: block;
+      animation: status-in 220ms ease-out;
+    }
+    .contact-status.is-success {
+      color: #b8f3dc;
+      border-color: rgba(119, 216, 179, 0.45);
+      background: rgba(52, 168, 126, 0.16);
+      box-shadow: 0 12px 35px rgba(52, 168, 126, 0.12);
+    }
+    .contact-status.is-error {
+      color: #ffd1cc;
+      border-color: rgba(255, 155, 145, 0.45);
+      background: rgba(190, 64, 55, 0.16);
+    }
+    @keyframes status-in {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     .form-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -408,6 +459,25 @@
       color: var(--muted);
       font-size: 0.78rem;
     }
+    .chat-channel {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-top: 0.35rem;
+      padding: 0.28rem 0.55rem;
+      border: 1px solid rgba(42, 171, 238, 0.3);
+      border-radius: 999px;
+      color: #9edcff !important;
+      background: rgba(42, 171, 238, 0.1);
+      font-size: 0.7rem !important;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .chat-channel svg {
+      width: 13px;
+      height: 13px;
+      fill: currentColor;
+    }
     .chat-close {
       border: 0;
       padding: 0.4rem;
@@ -418,6 +488,10 @@
     }
     .chat-body {
       padding: 1rem;
+    }
+    .chat-body.is-conversation .chat-welcome,
+    .chat-body.is-conversation #chat-form {
+      display: none;
     }
     .chat-welcome {
       padding: 0.85rem 1rem;
@@ -467,6 +541,57 @@
     }
     .chat-status.is-success { color: #77d8b3; }
     .chat-status.is-error { color: #ff9b91; }
+    .chat-conversation[hidden] { display: none; }
+    .chat-thread {
+      display: flex;
+      min-height: 170px;
+      max-height: 285px;
+      flex-direction: column;
+      gap: 0.7rem;
+      overflow-y: auto;
+      padding: 0.25rem 0.2rem 0.8rem;
+      scrollbar-width: thin;
+    }
+    .chat-message {
+      max-width: 85%;
+      padding: 0.72rem 0.85rem;
+      border-radius: 15px;
+      font-size: 0.9rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .chat-message.is-visitor {
+      align-self: flex-end;
+      color: #0b1422;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      border-bottom-right-radius: 4px;
+    }
+    .chat-message.is-operator {
+      align-self: flex-start;
+      color: var(--text);
+      background: var(--surface-strong);
+      border: 1px solid var(--line);
+      border-bottom-left-radius: 4px;
+    }
+    .chat-message-form {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.6rem;
+      padding-top: 0.8rem;
+      border-top: 1px solid var(--line);
+    }
+    .chat-message-form textarea {
+      min-height: 46px;
+      max-height: 110px;
+      resize: vertical;
+    }
+    .chat-send-button {
+      align-self: end;
+      min-height: 46px;
+      border: 0;
+      cursor: pointer;
+    }
     .chat-honeypot {
       position: absolute;
       left: -9999px;
@@ -514,6 +639,7 @@
         </p>
         <div class="hero-actions">
           <a class="button button-primary" href="#progetti">Scopri i progetti</a>
+          <a class="button button-secondary" href="#portfolio">Guarda il portfolio</a>
           <a class="button button-secondary" href="#innovazione">Perche e innovativo</a>
         </div>
       </div>
@@ -596,6 +722,48 @@
             <li>Un progetto che unisce intrattenimento, scoperta e worldbuilding in una formula meno standard dei giochi tradizionali.</li>
           </ul>
           <a class="project-link" href="https://gangempire.com" target="_blank" rel="noreferrer">Visita gangempire.com</a>
+        </article>
+      </div>
+    </section>
+
+    <section id="portfolio" class="section" aria-label="Portfolio CRO Labs">
+      <div class="section-heading">
+        <div>
+          <span class="pill">Portfolio</span>
+          <h2>Web app e siti costruiti intorno a esperienze concrete.</h2>
+        </div>
+        <p>
+          Progetti diversi per pubblico e obiettivi, accomunati da interfacce chiare, identita riconoscibili e funzioni pensate per essere utilizzate davvero.
+        </p>
+      </div>
+
+      <div class="portfolio-grid">
+        <article class="project-card portfolio-card">
+          <span class="project-tag">Gaming · Web app multilingua</span>
+          <h3>Last Asylum</h3>
+          <p>
+            Una companion web dedicata a Last Asylum: Plague, progettata per raccogliere codici regalo, guide, eventi, edifici, video e strumenti utili alla community internazionale del gioco.
+          </p>
+          <div class="portfolio-details" aria-label="Caratteristiche Last Asylum">
+            <span>Guide e strategie</span>
+            <span>Contenuti multilingua</span>
+            <span>Community gaming</span>
+          </div>
+          <a class="project-link" href="https://www.last-asylum.fun/" target="_blank" rel="noreferrer">Visita Last Asylum</a>
+        </article>
+
+        <article class="project-card portfolio-card">
+          <span class="project-tag">Turismo · Servizio locale</span>
+          <h3>Capri Rent a Scooter</h3>
+          <p>
+            Un sito orientato alla conversione per il noleggio scooter a Capri, con richiesta di prenotazione, tariffe, requisiti, mappe e informazioni pratiche per aiutare i visitatori a vivere l'isola in autonomia.
+          </p>
+          <div class="portfolio-details" aria-label="Caratteristiche Capri Rent a Scooter">
+            <span>Richiesta prenotazione</span>
+            <span>Mappe e itinerari</span>
+            <span>Esperienza turistica</span>
+          </div>
+          <a class="project-link" href="https://caprirentascooter.it/" target="_blank" rel="noreferrer">Visita Capri Rent a Scooter</a>
         </article>
       </div>
     </section>
@@ -736,16 +904,19 @@
     </svg>
   </button>
 
-  <aside class="chat-panel" id="chat-panel" aria-label="Chat con CRO Labs" aria-hidden="true">
+  <aside class="chat-panel" id="chat-panel" aria-label="Contatta CRO Labs tramite Telegram" aria-hidden="true">
     <div class="chat-header">
       <div>
-        <strong>Parla con CRO Labs</strong>
-        <span>Di solito rispondiamo rapidamente</span>
+        <strong>Scrivi a CRO Labs</strong>
+        <span class="chat-channel">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.9 2.6 18.6 21c-.2 1.3-1 1.6-2 1l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.4-5.1 9.3-8.4c.4-.4-.1-.6-.6-.2L5.8 14.6l-5-1.6c-1.1-.3-1.1-1.1.2-1.6L20.5 2c.9-.3 1.7.2 1.4.6z"/></svg>
+          Messaggi ricevuti su Telegram
+        </span>
       </div>
       <button class="chat-close" id="chat-close" type="button" aria-label="Chiudi la chat">&times;</button>
     </div>
-    <div class="chat-body">
-      <p class="chat-welcome">Ciao! Raccontaci come possiamo aiutarti. Il tuo messaggio arrivera direttamente al nostro team.</p>
+    <div class="chat-body" id="chat-body">
+      <p class="chat-welcome">Ciao! Il tuo messaggio arriva subito al nostro team su Telegram. Puoi leggere la risposta direttamente qui.</p>
       <form class="chat-form" id="chat-form">
         <input type="text" name="name" placeholder="Il tuo nome" maxlength="80" autocomplete="name" required>
         <input type="email" name="email" placeholder="La tua email" maxlength="120" autocomplete="email" required>
@@ -754,6 +925,14 @@
         <button class="button button-primary chat-submit" type="submit">Invia messaggio</button>
         <p class="chat-status" id="chat-status" role="status" aria-live="polite"></p>
       </form>
+      <div class="chat-conversation" id="chat-conversation" hidden>
+        <div class="chat-thread" id="chat-thread" aria-live="polite" aria-label="Messaggi della conversazione"></div>
+        <form class="chat-message-form" id="chat-message-form">
+          <textarea name="message" maxlength="2000" rows="1" aria-label="Nuovo messaggio" placeholder="Scrivi un altro messaggio..." required></textarea>
+          <button class="button button-primary chat-send-button" type="submit" aria-label="Invia messaggio">Invia</button>
+        </form>
+        <p class="chat-status" id="chat-conversation-status" role="status" aria-live="polite"></p>
+      </div>
     </div>
   </aside>
 
@@ -763,14 +942,78 @@
     const chatClose = document.getElementById("chat-close");
     const chatForm = document.getElementById("chat-form");
     const chatStatus = document.getElementById("chat-status");
+    const chatBody = document.getElementById("chat-body");
+    const chatConversation = document.getElementById("chat-conversation");
+    const chatThread = document.getElementById("chat-thread");
+    const chatMessageForm = document.getElementById("chat-message-form");
+    const chatConversationStatus = document.getElementById("chat-conversation-status");
     const contactForm = document.getElementById("contact-form");
     const contactStatus = document.getElementById("contact-status");
+    const chatStorageKey = "croLabsChatSession";
+    let chatSession = null;
+    let renderedMessageIds = "";
+
+    try {
+      chatSession = JSON.parse(localStorage.getItem(chatStorageKey));
+    } catch {
+      localStorage.removeItem(chatStorageKey);
+    }
+
+    function showConversation() {
+      chatBody.classList.add("is-conversation");
+      chatConversation.hidden = false;
+    }
+
+    function renderMessages(messages) {
+      const signature = messages.map((message) => message.id).join(",");
+      if (signature === renderedMessageIds) return;
+      renderedMessageIds = signature;
+      chatThread.replaceChildren();
+      messages.forEach((message) => {
+        const bubble = document.createElement("div");
+        bubble.className = `chat-message is-${message.sender}`;
+        bubble.textContent = message.body;
+        chatThread.appendChild(bubble);
+      });
+      chatThread.scrollTop = chatThread.scrollHeight;
+    }
+
+    async function refreshChat() {
+      if (!chatSession) return;
+      try {
+        const response = await fetch(`/api/chat/messages?session=${encodeURIComponent(chatSession.sessionId)}`, {
+          headers: { "X-Chat-Token": chatSession.accessToken }
+        });
+        const result = await response.json();
+        if (response.status === 401) {
+          localStorage.removeItem(chatStorageKey);
+          chatSession = null;
+          return;
+        }
+        if (!response.ok) throw new Error(result.error);
+        showConversation();
+        renderMessages(result.messages);
+        chatConversationStatus.textContent = "Connesso · le risposte arrivano qui automaticamente";
+        chatConversationStatus.className = "chat-status is-success";
+      } catch {
+        chatConversationStatus.textContent = "Riconnessione in corso...";
+        chatConversationStatus.className = "chat-status";
+      }
+    }
 
     function setChatOpen(open) {
       chatPanel.classList.toggle("is-open", open);
       chatPanel.setAttribute("aria-hidden", String(!open));
       chatLauncher.setAttribute("aria-expanded", String(open));
-      if (open) chatForm.elements.name.focus();
+      if (open) {
+        if (chatSession) {
+          showConversation();
+          refreshChat();
+          chatMessageForm.elements.message.focus();
+        } else {
+          chatForm.elements.name.focus();
+        }
+      }
     }
 
     chatLauncher.addEventListener("click", () => {
@@ -791,7 +1034,7 @@
       chatStatus.textContent = "Invio in corso...";
 
       try {
-        const response = await fetch("/api/chat", {
+        const response = await fetch("/api/chat/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data)
@@ -799,9 +1042,11 @@
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Invio non riuscito");
 
+        chatSession = { sessionId: result.sessionId, accessToken: result.accessToken };
+        localStorage.setItem(chatStorageKey, JSON.stringify(chatSession));
         chatForm.reset();
-        chatStatus.className = "chat-status is-success";
-        chatStatus.textContent = "Messaggio inviato! Ti risponderemo via email.";
+        showConversation();
+        await refreshChat();
       } catch (error) {
         chatStatus.className = "chat-status is-error";
         chatStatus.textContent = error.message || "Qualcosa non ha funzionato. Riprova.";
@@ -809,6 +1054,37 @@
         submitButton.disabled = false;
       }
     });
+
+    chatMessageForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!chatSession) return;
+      const submitButton = chatMessageForm.querySelector("button[type='submit']");
+      const message = chatMessageForm.elements.message.value.trim();
+      if (!message) return;
+      submitButton.disabled = true;
+      chatConversationStatus.textContent = "Invio in corso...";
+      try {
+        const response = await fetch("/api/chat/message", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...chatSession, message })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Invio non riuscito");
+        chatMessageForm.reset();
+        await refreshChat();
+      } catch (error) {
+        chatConversationStatus.className = "chat-status is-error";
+        chatConversationStatus.textContent = error.message || "Invio non riuscito. Riprova.";
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    if (chatSession) refreshChat();
+    setInterval(() => {
+      if (chatSession && !document.hidden) refreshChat();
+    }, 3000);
 
     contactForm.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -830,10 +1106,10 @@
 
         contactForm.reset();
         contactStatus.className = "contact-status is-success";
-        contactStatus.textContent = "Messaggio inviato! Ti risponderemo al piu presto.";
+        contactStatus.textContent = "✓ Email inviata con successo! Grazie per averci contattato. Ti risponderemo al piu presto.";
       } catch (error) {
         contactStatus.className = "contact-status is-error";
-        contactStatus.textContent = error.message || "Qualcosa non ha funzionato. Riprova.";
+        contactStatus.textContent = `Attenzione: ${error.message || "qualcosa non ha funzionato. Riprova."}`;
       } finally {
         submitButton.disabled = false;
       }
