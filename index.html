@@ -302,6 +302,13 @@
       gap: 1rem;
       margin-top: 1.4rem;
     }
+    .contact-status {
+      min-height: 1.5rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .contact-status.is-success { color: #77d8b3; }
+    .contact-status.is-error { color: #ff9b91; }
     .form-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -336,6 +343,133 @@
     .form-group textarea {
       min-height: 130px;
       resize: vertical;
+    }
+    .chat-launcher {
+      position: fixed;
+      right: 1.25rem;
+      bottom: 1.25rem;
+      z-index: 20;
+      width: 60px;
+      height: 60px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 50%;
+      color: #0b1422;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      box-shadow: 0 16px 45px rgba(0, 0, 0, 0.38);
+      cursor: pointer;
+      transition: transform 180ms ease;
+    }
+    .chat-launcher:hover {
+      transform: translateY(-3px);
+    }
+    .chat-launcher svg {
+      width: 27px;
+      height: 27px;
+    }
+    .chat-panel {
+      position: fixed;
+      right: 1.25rem;
+      bottom: 6.1rem;
+      z-index: 20;
+      width: min(380px, calc(100vw - 2rem));
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: #0d1c2e;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+      transform: translateY(12px) scale(0.98);
+      transform-origin: bottom right;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
+    }
+    .chat-panel.is-open {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+      visibility: visible;
+    }
+    .chat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.1rem;
+      background: linear-gradient(135deg, rgba(246, 183, 60, 0.18), rgba(255, 138, 61, 0.08));
+      border-bottom: 1px solid var(--line);
+    }
+    .chat-header strong {
+      display: block;
+      color: var(--text);
+    }
+    .chat-header span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+    .chat-close {
+      border: 0;
+      padding: 0.4rem;
+      color: var(--muted);
+      background: transparent;
+      font-size: 1.35rem;
+      cursor: pointer;
+    }
+    .chat-body {
+      padding: 1rem;
+    }
+    .chat-welcome {
+      padding: 0.85rem 1rem;
+      border-radius: 16px 16px 16px 4px;
+      color: var(--muted);
+      background: var(--surface-strong);
+      font-size: 0.92rem;
+    }
+    .chat-form {
+      display: grid;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .chat-form input,
+    .chat-form textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      padding: 0.78rem 0.9rem;
+      outline: none;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+      font: inherit;
+    }
+    .chat-form input:focus,
+    .chat-form textarea:focus {
+      border-color: var(--accent);
+    }
+    .chat-form textarea {
+      min-height: 105px;
+      resize: vertical;
+    }
+    .chat-submit {
+      width: 100%;
+      border: 0;
+      cursor: pointer;
+    }
+    .chat-submit:disabled {
+      cursor: wait;
+      opacity: 0.65;
+    }
+    .chat-status {
+      min-height: 1.35rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-align: center;
+    }
+    .chat-status.is-success { color: #77d8b3; }
+    .chat-status.is-error { color: #ff9b91; }
+    .chat-honeypot {
+      position: absolute;
+      left: -9999px;
     }
     @media (max-width: 860px) {
       .hero {
@@ -566,7 +700,7 @@
         </div>
         <p>Hai un progetto in mente, vuoi collaborare o semplicemente saperne di piu? Lascia un messaggio.</p>
       </div>
-      <form class="contact-form" action="https://formspree.io/f/mykrywvn" method="post">
+      <form class="contact-form" id="contact-form">
         <div class="form-row">
           <div class="form-group">
             <label for="nome">Nome</label>
@@ -579,11 +713,13 @@
         </div>
         <div class="form-group">
           <label for="messaggio">Messaggio</label>
-          <textarea id="messaggio" name="messaggio" placeholder="Cosa vorresti dirci?" required></textarea>
+          <textarea id="messaggio" name="message" maxlength="4000" placeholder="Cosa vorresti dirci?" required></textarea>
         </div>
+        <input class="chat-honeypot" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
         <div>
           <button type="submit" class="button button-primary">Invia messaggio</button>
         </div>
+        <p class="contact-status" id="contact-status" role="status" aria-live="polite"></p>
       </form>
     </section>
 
@@ -593,5 +729,115 @@
       CRO Labs S.r.l. &mdash; P.IVA 11118861217
     </footer>
   </main>
+
+  <button class="chat-launcher" id="chat-launcher" type="button" aria-label="Apri la chat" aria-controls="chat-panel" aria-expanded="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>
+    </svg>
+  </button>
+
+  <aside class="chat-panel" id="chat-panel" aria-label="Chat con CRO Labs" aria-hidden="true">
+    <div class="chat-header">
+      <div>
+        <strong>Parla con CRO Labs</strong>
+        <span>Di solito rispondiamo rapidamente</span>
+      </div>
+      <button class="chat-close" id="chat-close" type="button" aria-label="Chiudi la chat">&times;</button>
+    </div>
+    <div class="chat-body">
+      <p class="chat-welcome">Ciao! Raccontaci come possiamo aiutarti. Il tuo messaggio arrivera direttamente al nostro team.</p>
+      <form class="chat-form" id="chat-form">
+        <input type="text" name="name" placeholder="Il tuo nome" maxlength="80" autocomplete="name" required>
+        <input type="email" name="email" placeholder="La tua email" maxlength="120" autocomplete="email" required>
+        <textarea name="message" placeholder="Scrivi il tuo messaggio..." maxlength="2000" required></textarea>
+        <input class="chat-honeypot" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button class="button button-primary chat-submit" type="submit">Invia messaggio</button>
+        <p class="chat-status" id="chat-status" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </aside>
+
+  <script>
+    const chatLauncher = document.getElementById("chat-launcher");
+    const chatPanel = document.getElementById("chat-panel");
+    const chatClose = document.getElementById("chat-close");
+    const chatForm = document.getElementById("chat-form");
+    const chatStatus = document.getElementById("chat-status");
+    const contactForm = document.getElementById("contact-form");
+    const contactStatus = document.getElementById("contact-status");
+
+    function setChatOpen(open) {
+      chatPanel.classList.toggle("is-open", open);
+      chatPanel.setAttribute("aria-hidden", String(!open));
+      chatLauncher.setAttribute("aria-expanded", String(open));
+      if (open) chatForm.elements.name.focus();
+    }
+
+    chatLauncher.addEventListener("click", () => {
+      setChatOpen(!chatPanel.classList.contains("is-open"));
+    });
+    chatClose.addEventListener("click", () => setChatOpen(false));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") setChatOpen(false);
+    });
+
+    chatForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const submitButton = chatForm.querySelector("button[type='submit']");
+      const data = Object.fromEntries(new FormData(chatForm));
+
+      submitButton.disabled = true;
+      chatStatus.className = "chat-status";
+      chatStatus.textContent = "Invio in corso...";
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Invio non riuscito");
+
+        chatForm.reset();
+        chatStatus.className = "chat-status is-success";
+        chatStatus.textContent = "Messaggio inviato! Ti risponderemo via email.";
+      } catch (error) {
+        chatStatus.className = "chat-status is-error";
+        chatStatus.textContent = error.message || "Qualcosa non ha funzionato. Riprova.";
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    contactForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const submitButton = contactForm.querySelector("button[type='submit']");
+      const data = Object.fromEntries(new FormData(contactForm));
+
+      submitButton.disabled = true;
+      contactStatus.className = "contact-status";
+      contactStatus.textContent = "Invio in corso...";
+
+      try {
+        const response = await fetch("/api/contact", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Invio non riuscito");
+
+        contactForm.reset();
+        contactStatus.className = "contact-status is-success";
+        contactStatus.textContent = "Messaggio inviato! Ti risponderemo al piu presto.";
+      } catch (error) {
+        contactStatus.className = "contact-status is-error";
+        contactStatus.textContent = error.message || "Qualcosa non ha funzionato. Riprova.";
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+  </script>
 </body>
 </html>
