@@ -236,6 +236,225 @@
       background: rgba(255, 255, 255, 0.03);
       font-size: 0.76rem;
     }
+    .saas-preview {
+      position: relative;
+      overflow: hidden;
+      border-color: rgba(42, 171, 238, 0.22);
+      background:
+        radial-gradient(circle at 88% 20%, rgba(42, 171, 238, 0.16), transparent 28%),
+        rgba(8, 18, 31, 0.58);
+    }
+    .saas-preview::before {
+      content: "";
+      position: absolute;
+      width: 18rem;
+      height: 18rem;
+      right: -8rem;
+      bottom: -10rem;
+      border-radius: 50%;
+      background: rgba(246, 183, 60, 0.1);
+      filter: blur(8px);
+      pointer-events: none;
+    }
+    .wip-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      padding: 0.5rem 0.8rem;
+      border: 1px solid rgba(246, 183, 60, 0.35);
+      border-radius: 999px;
+      color: #ffd783;
+      background: rgba(246, 183, 60, 0.1);
+      font-size: 0.73rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .wip-badge::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 5px rgba(246, 183, 60, 0.12);
+    }
+    .saas-layout {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 0.8fr) minmax(360px, 1.2fr);
+      gap: 2rem;
+      align-items: center;
+      z-index: 1;
+    }
+    .saas-copy h2 {
+      max-width: 13ch;
+      margin-bottom: 1rem;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: clamp(2rem, 4vw, 3.4rem);
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+    .saas-copy > p {
+      color: var(--muted);
+      max-width: 56ch;
+    }
+    .saas-points {
+      display: grid;
+      gap: 0.65rem;
+      margin: 1.25rem 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .saas-points li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .saas-points li::before {
+      content: "✓";
+      flex: 0 0 auto;
+      color: #77d8b3;
+      font-weight: 800;
+    }
+    .saas-stack {
+      margin-top: 1.35rem;
+      padding-top: 1.15rem;
+      border-top: 1px solid var(--line);
+    }
+    .saas-stack-label {
+      display: block;
+      margin-bottom: 0.7rem;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .saas-stack-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+    }
+    .saas-stack-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.72rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.035);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .saas-stack-item::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #77d8b3;
+      box-shadow: 0 0 0 4px rgba(119, 216, 179, 0.08);
+    }
+    .saas-demo {
+      padding: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(5, 13, 23, 0.72);
+      box-shadow: 0 22px 65px rgba(0, 0, 0, 0.32);
+    }
+    .saas-demo-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+    .saas-demo-dots {
+      display: flex;
+      gap: 0.35rem;
+    }
+    .saas-demo-dots i {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.16);
+    }
+    .saas-flow {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.65rem;
+      align-items: stretch;
+    }
+    .saas-flow-card {
+      position: relative;
+      min-height: 160px;
+      padding: 0.9rem;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--surface);
+    }
+    .saas-flow-card + .saas-flow-card::before {
+      content: "→";
+      position: absolute;
+      left: -0.88rem;
+      top: 50%;
+      width: 1.1rem;
+      height: 1.1rem;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: var(--accent);
+      background: #0b1929;
+      font-size: 0.78rem;
+      transform: translateY(-50%);
+    }
+    .saas-flow-icon {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 0.75rem;
+      border-radius: 11px;
+      color: var(--accent);
+      background: rgba(246, 183, 60, 0.1);
+      font-weight: 800;
+    }
+    .saas-flow-card.telegram .saas-flow-icon {
+      color: #9edcff;
+      background: rgba(42, 171, 238, 0.12);
+    }
+    .saas-flow-card strong {
+      display: block;
+      margin-bottom: 0.4rem;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    .saas-flow-card p {
+      color: var(--muted);
+      font-size: 0.76rem;
+      line-height: 1.45;
+    }
+    .saas-note {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 0.75rem;
+      padding: 0.7rem 0.8rem;
+      border-radius: 12px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.035);
+      font-size: 0.75rem;
+    }
+    .saas-note span:last-child {
+      color: #77d8b3;
+      font-weight: 700;
+    }
     .service-grid,
     .story-grid {
       display: grid;
@@ -605,6 +824,12 @@
         align-items: start;
         flex-direction: column;
       }
+      .saas-layout {
+        grid-template-columns: 1fr;
+      }
+      .saas-copy h2 {
+        max-width: 18ch;
+      }
     }
     @media (max-width: 640px) {
       main {
@@ -622,6 +847,18 @@
       .section {
         padding: 1.25rem;
         border-radius: 22px;
+      }
+      .saas-flow {
+        grid-template-columns: 1fr;
+      }
+      .saas-flow-card {
+        min-height: auto;
+      }
+      .saas-flow-card + .saas-flow-card::before {
+        content: "↓";
+        left: 50%;
+        top: -0.88rem;
+        transform: translateX(-50%);
       }
     }
   </style>
@@ -765,6 +1002,63 @@
           </div>
           <a class="project-link" href="https://caprirentascooter.it/" target="_blank" rel="noreferrer">Visita Capri Rent a Scooter</a>
         </article>
+      </div>
+    </section>
+
+    <section id="cro-connect" class="section saas-preview" aria-label="Anteprima CRO Connect">
+      <div class="saas-layout">
+        <div class="saas-copy">
+          <span class="wip-badge">Work in progress</span>
+          <h2>La chat del sito, direttamente nel tuo Telegram.</h2>
+          <p>
+            CRO Connect e il nuovo servizio SaaS in sviluppo per permettere ad attivita, professionisti e strutture ricettive di parlare con i visitatori del proprio sito senza controllare un'altra dashboard.
+          </p>
+          <ul class="saas-points">
+            <li>Si installa su qualsiasi sito con un semplice script.</li>
+            <li>I messaggi arrivano subito su Telegram e le risposte tornano nel widget.</li>
+            <li>Conversazioni protette, storico, antispam e personalizzazione del brand.</li>
+          </ul>
+          <div class="saas-stack" aria-label="Tecnologie utilizzate">
+            <span class="saas-stack-label">Tecnologie e infrastrutture professionali</span>
+            <div class="saas-stack-list">
+              <span class="saas-stack-item">Hostinger</span>
+              <span class="saas-stack-item">Amazon Web Services</span>
+              <span class="saas-stack-item">Supabase</span>
+              <span class="saas-stack-item">Telegram</span>
+            </div>
+          </div>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#contatti" id="beta-cta">Partecipa alla beta</a>
+          </div>
+        </div>
+
+        <div class="saas-demo" aria-label="Come funziona CRO Connect">
+          <div class="saas-demo-bar">
+            <div class="saas-demo-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+            <span>CRO Connect · anteprima prodotto</span>
+          </div>
+          <div class="saas-flow">
+            <article class="saas-flow-card">
+              <span class="saas-flow-icon">1</span>
+              <strong>Il cliente scrive</strong>
+              <p>Il widget si apre direttamente sul sito, senza cambiare pagina o installare applicazioni.</p>
+            </article>
+            <article class="saas-flow-card telegram">
+              <span class="saas-flow-icon">2</span>
+              <strong>Ricevi su Telegram</strong>
+              <p>Il team riceve la richiesta nel canale che usa gia ogni giorno e risponde da li.</p>
+            </article>
+            <article class="saas-flow-card">
+              <span class="saas-flow-icon">3</span>
+              <strong>La risposta torna sul sito</strong>
+              <p>Il visitatore vede il messaggio in pochi secondi e continua la stessa conversazione.</p>
+            </article>
+          </div>
+          <div class="saas-note">
+            <span>Widget modulare · Telegram · Email · Antispam</span>
+            <span>Beta in preparazione</span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -949,6 +1243,7 @@
     const chatConversationStatus = document.getElementById("chat-conversation-status");
     const contactForm = document.getElementById("contact-form");
     const contactStatus = document.getElementById("contact-status");
+    const betaCta = document.getElementById("beta-cta");
     const chatStorageKey = "croLabsChatSession";
     let chatSession = null;
     let renderedMessageIds = "";
@@ -1085,6 +1380,14 @@
     setInterval(() => {
       if (chatSession && !document.hidden) refreshChat();
     }, 3000);
+
+    betaCta.addEventListener("click", () => {
+      const betaMessage = "Ciao CRO Labs, sono interessato a partecipare alla beta di CRO Connect. Vorrei ricevere maggiori informazioni sul servizio e sulla possibilita di provarlo sul mio sito.";
+      contactForm.elements.message.value = betaMessage;
+      contactStatus.className = "contact-status";
+      contactStatus.textContent = "Richiesta beta preparata: inserisci nome ed email, poi invia il messaggio.";
+      setTimeout(() => contactForm.elements.nome.focus(), 350);
+    });
 
     contactForm.addEventListener("submit", async (event) => {
       event.preventDefault();
