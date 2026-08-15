@@ -1354,8 +1354,10 @@
       event.preventDefault();
       if (!chatSession) return;
       const submitButton = chatMessageForm.querySelector("button[type='submit']");
-      const message = chatMessageForm.elements.message.value.trim();
+      const messageInput = chatMessageForm.elements.message;
+      const message = messageInput.value.trim();
       if (!message) return;
+      messageInput.value = "";
       submitButton.disabled = true;
       chatConversationStatus.textContent = "Invio in corso...";
       try {
@@ -1366,13 +1368,14 @@
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Invio non riuscito");
-        chatMessageForm.reset();
         await refreshChat();
       } catch (error) {
+        if (!messageInput.value) messageInput.value = message;
         chatConversationStatus.className = "chat-status is-error";
         chatConversationStatus.textContent = error.message || "Invio non riuscito. Riprova.";
       } finally {
         submitButton.disabled = false;
+        messageInput.focus();
       }
     });
 
