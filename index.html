@@ -439,6 +439,34 @@
       font-size: 0.76rem;
       line-height: 1.45;
     }
+    .saas-install-options {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.65rem;
+      margin-top: 0.75rem;
+    }
+    .saas-install-card {
+      padding: 0.9rem;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+    .saas-install-card strong {
+      display: block;
+      margin-bottom: 0.35rem;
+      color: var(--text);
+      font-size: 0.84rem;
+    }
+    .saas-install-card p {
+      color: var(--muted);
+      font-size: 0.75rem;
+      line-height: 1.5;
+    }
+    .saas-install-card code {
+      color: #9edcff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.72rem;
+    }
     .saas-note {
       display: flex;
       align-items: center;
@@ -851,6 +879,9 @@
       .saas-flow {
         grid-template-columns: 1fr;
       }
+      .saas-install-options {
+        grid-template-columns: 1fr;
+      }
       .saas-flow-card {
         min-height: auto;
       }
@@ -1028,7 +1059,7 @@
             </div>
           </div>
           <div class="hero-actions">
-            <a class="button button-primary" href="#contatti" id="beta-cta">Partecipa alla beta</a>
+            <a class="button button-primary" href="https://connect.cro-labs.it">Partecipa alla beta</a>
           </div>
         </div>
 
@@ -1052,6 +1083,16 @@
               <span class="saas-flow-icon">3</span>
               <strong>La risposta torna sul sito</strong>
               <p>Il visitatore vede il messaggio in pochi secondi e continua la stessa conversazione.</p>
+            </article>
+          </div>
+          <div class="saas-install-options" aria-label="Modalita di installazione">
+            <article class="saas-install-card">
+              <strong>Qualsiasi sito · Script</strong>
+              <p>Copia lo snippet generato dalla dashboard prima della chiusura di <code>&lt;/body&gt;</code>. Contiene gia <code>widget.js</code> e il Site ID del tuo sito.</p>
+            </article>
+            <article class="saas-install-card">
+              <strong>WordPress · Plugin dedicato</strong>
+              <p>Installa e attiva CRO Connect, incolla il Site ID nelle impostazioni e abilita la chat. Non servono token Telegram o credenziali Supabase.</p>
             </article>
           </div>
           <div class="saas-note">
@@ -1243,7 +1284,6 @@
     const chatConversationStatus = document.getElementById("chat-conversation-status");
     const contactForm = document.getElementById("contact-form");
     const contactStatus = document.getElementById("contact-status");
-    const betaCta = document.getElementById("beta-cta");
     const chatStorageKey = "croLabsChatSession";
     let chatSession = null;
     let renderedMessageIds = "";
@@ -1383,14 +1423,6 @@
     setInterval(() => {
       if (chatSession && !document.hidden) refreshChat();
     }, 3000);
-
-    betaCta.addEventListener("click", () => {
-      const betaMessage = "Ciao CRO Labs, sono interessato a partecipare alla beta di CRO Connect. Vorrei ricevere maggiori informazioni sul servizio e sulla possibilita di provarlo sul mio sito.";
-      contactForm.elements.message.value = betaMessage;
-      contactStatus.className = "contact-status";
-      contactStatus.textContent = "Richiesta beta preparata: inserisci nome ed email, poi invia il messaggio.";
-      setTimeout(() => contactForm.elements.nome.focus(), 350);
-    });
 
     contactForm.addEventListener("submit", async (event) => {
       event.preventDefault();
