@@ -13,7 +13,28 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL;
 const EMAIL_FROM = process.env.EMAIL_FROM || "CRO Labs <onboarding@resend.dev>";
 const indexPath = path.join(__dirname, "index.html");
+const serviziDir = path.join(__dirname, "servizi");
 const attempts = new Map();
+
+function serveHtmlFile(response, filePath) {
+  const stream = fs.createReadStream(filePath);
+  stream.once("error", () => sendJson(response, 404, { error: "Pagina non trovata." }));
+  stream.once("open", () => {
+    response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    stream.pipe(response);
+  });
+}
+
+function serveServiziPage(response, pathname) {
+  const relative = pathname === "/servizi" || pathname === "/servizi/"
+    ? "index.html"
+    : pathname.slice("/servizi/".length);
+  const filePath = path.normalize(path.join(serviziDir, relative));
+  if (!filePath.startsWith(serviziDir + path.sep) || !filePath.endsWith(".html")) {
+    return sendJson(response, 404, { error: "Pagina non trovata." });
+  }
+  return serveHtmlFile(response, filePath);
+}
 
 function sendJson(response, status, body) {
   response.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
@@ -267,6 +288,9 @@ const server = http.createServer(async (request, response) => {
   if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     return fs.createReadStream(indexPath).pipe(response);
+  }
+  if (request.method === "GET" && (url.pathname === "/servizi" || url.pathname.startsWith("/servizi/"))) {
+    return serveServiziPage(response, url.pathname);
   }
   if (request.method === "GET" && url.pathname === "/health") {
     return sendJson(response, 200, { status: "ok", database: Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) });
