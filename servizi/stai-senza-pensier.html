@@ -557,8 +557,8 @@
             <span>Confermo che i dati sono corretti e autorizzo CRO Labs a registrare e gestire il dominio indicato secondo le condizioni del servizio. *</span>
           </label>
           <div class="activation-actions">
-            <button class="button button-primary" type="submit">Continua al pagamento</button>
-            <span class="activation-status" id="activation-status" role="status" aria-live="polite">Il pagamento sarà collegato nel prossimo passaggio.</span>
+            <button class="button button-primary" id="checkout-submit" type="submit">Continua al pagamento</button>
+            <span class="activation-status" id="activation-status" role="status" aria-live="polite">Pagamento sicuro gestito da Revolut.</span>
           </div>
         </form>
       </div>
@@ -702,6 +702,7 @@
       const activationEmail = document.getElementById("activation-email");
       const selectedDomain = document.getElementById("selected-domain");
       const activationStatus = document.getElementById("activation-status");
+      const checkoutSubmit = document.getElementById("checkout-submit");
       const stepDescription = document.getElementById("activation-step-description");
       const emailVerificationForm = document.getElementById("email-verification-form");
       const verificationEmail = document.getElementById("verification-email");
@@ -730,7 +731,7 @@
         stepDescription.textContent = "Prima verifichiamo il tuo indirizzo email.";
         verificationStatus.className = "verification-status";
         verificationStatus.textContent = "Ti invieremo un codice a 6 cifre valido per 15 minuti.";
-        activationStatus.textContent = "Il pagamento sarà collegato nel prossimo passaggio.";
+        activationStatus.textContent = "Pagamento sicuro gestito da Revolut.";
         activationWrap.scrollIntoView({ behavior: "smooth", block: "start" });
       }
 
@@ -935,7 +936,7 @@
         }
       });
 
-      activationForm.addEventListener("submit", (event) => {
+      activationForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         if (!activationToken.value) {
           activationForm.hidden = true;
@@ -945,8 +946,39 @@
           return;
         }
         if (!activationForm.reportValidity()) return;
-        activationStatus.textContent = "Dati completi. Ora possiamo collegare il checkout sicuro Revolut.";
+        checkoutSubmit.disabled = true;
+        activationStatus.textContent = "Apertura del pagamento sicuro...";
+        try {
+          const payload = Object.fromEntries(new FormData(activationForm).entries());
+          payload.verification_id = verificationId;
+          payload.registration_consent = activationForm.elements.registration_consent.checked;
+          const response = await fetch("/api/domains/checkout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if (!response.ok || !result.checkoutUrl) {
+            throw new Error(result.error || "Pagamento non disponibile.");
+          }
+          activationStatus.textContent = "Reindirizzamento a Revolut...";
+          window.location.assign(result.checkoutUrl);
+        } catch (error) {
+          activationStatus.textContent = error.message || "Pagamento non disponibile. Riprova.";
+          checkoutSubmit.disabled = false;
+        }
       });
+
+      const returnParams = new URLSearchParams(window.location.search);
+      if (returnParams.get("payment") === "return") {
+        const orderReference = String(returnParams.get("order") || "").slice(0, 8);
+        activationWrap.hidden = false;
+        emailVerificationForm.hidden = true;
+        activationForm.hidden = true;
+        selectedDomain.textContent = orderReference ? "Ordine " + orderReference : "Pagamento Revolut";
+        stepDescription.textContent = "Sei tornato da Revolut. Stiamo verificando l'esito del pagamento; non chiudere o ripetere l'ordine.";
+        activationWrap.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
     })();
   </script>
 </body>

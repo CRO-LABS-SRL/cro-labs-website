@@ -97,6 +97,31 @@ Il codice e salvato nel database solo sotto forma di hash. Per attivare la funzi
 la nuova `CREATE TABLE domain_activation_verifications` presente in `schema.sql` e configurare
 le variabili MySQL e `RESEND_API_KEY` gia usate dal resto del sito.
 
+### Checkout Revolut Sandbox
+
+Dopo la verifica email, `POST /api/domains/checkout` valida nuovamente la chiave di attivazione,
+salva i dati in `domain_service_orders`, crea un ordine Revolut e restituisce al browser solo
+il relativo `checkout_url`. Gli importi sono determinati esclusivamente dal server:
+
+- pacchetto 5 anni: `36000` centesimi;
+- pacchetto 10 anni: `69000` centesimi.
+
+Configurazione server:
+
+```env
+REVOLUT_SECRET_KEY=chiave_segreta_sandbox
+REVOLUT_ENV=sandbox
+PUBLIC_BASE_URL=https://cro-labs.it
+```
+
+`REVOLUT_ENV` usa `sandbox` come valore predefinito. Impostare `production` solo dopo i test e
+insieme alla relativa chiave Production. `PUBLIC_BASE_URL` permette a Revolut di riportare il
+cliente sulla pagina dopo il checkout. Eseguire anche la `CREATE TABLE domain_service_orders`
+presente in `schema.sql`.
+
+Il ritorno del browser non costituisce prova del pagamento: lo stato definitivo verra gestito
+dal webhook Revolut nel passaggio successivo, prima di acquistare il dominio tramite Hostinger.
+
 ## Email con Resend
 
 Il modulo contatti usa `/api/contact`, quindi non abbandona piu il sito dopo l'invio.

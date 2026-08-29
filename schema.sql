@@ -40,3 +40,33 @@ CREATE TABLE IF NOT EXISTS domain_activation_verifications (
   INDEX domain_activation_email_idx (email, created_at),
   INDEX domain_activation_expiry_idx (expires_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS domain_service_orders (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  verification_id CHAR(36) NOT NULL UNIQUE,
+  revolut_order_id CHAR(36) NULL UNIQUE,
+  checkout_url TEXT NULL,
+  status ENUM('draft', 'pending', 'completed', 'failed', 'cancelled') NOT NULL DEFAULT 'draft',
+  domain VARCHAR(255) NOT NULL,
+  plan_years TINYINT UNSIGNED NOT NULL,
+  amount_cents INT UNSIGNED NOT NULL,
+  currency CHAR(3) NOT NULL DEFAULT 'EUR',
+  company_name VARCHAR(160) NOT NULL,
+  vat_number VARCHAR(32) NOT NULL,
+  fiscal_code VARCHAR(32) NULL,
+  contact_first_name VARCHAR(80) NOT NULL,
+  contact_last_name VARCHAR(80) NOT NULL,
+  email VARCHAR(120) NOT NULL,
+  phone VARCHAR(40) NOT NULL,
+  address VARCHAR(200) NOT NULL,
+  city VARCHAR(100) NOT NULL,
+  province CHAR(2) NOT NULL,
+  postal_code VARCHAR(16) NOT NULL,
+  country CHAR(2) NOT NULL DEFAULT 'IT',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_domain_order_verification
+    FOREIGN KEY (verification_id) REFERENCES domain_activation_verifications (id),
+  INDEX domain_service_orders_status_idx (status, created_at),
+  INDEX domain_service_orders_domain_idx (domain)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;

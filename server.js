@@ -32,6 +32,13 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL;
 const EMAIL_FROM = process.env.EMAIL_FROM || "CRO Labs <onboarding@resend.dev>";
 const HOSTINGER_API = process.env.HOSTINGER_API || process.env.HOSTINGER_API_TOKEN;
+const REVOLUT_SECRET_KEY = process.env.REVOLUT_SECRET_KEY;
+const REVOLUT_ENV = String(process.env.REVOLUT_ENV || "sandbox").toLowerCase();
+const REVOLUT_API_BASE = REVOLUT_ENV === "production"
+  ? "https://merchant.revolut.com"
+  : "https://sandbox-merchant.revolut.com";
+const REVOLUT_API_VERSION = process.env.REVOLUT_API_VERSION || "2026-04-20";
+const PUBLIC_BASE_URL = String(process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
 const DOMAIN_DEFAULT_TLDS = ["it", "com", "net", "eu"];
 const indexPath = path.join(__dirname, "index.html");
 const serviziDir = path.join(__dirname, "servizi");
@@ -415,6 +422,147 @@ async function handleDomainActivationVerify(request, response) {
   }
 }
 
+const DOMAIN_PLAN_PRICES = Object.freeze({ 5: 36000, 10: 69000 });
+
+function orderText(value, maxLength) {
+  return String(value || "").trim().slice(0, maxLength);
+}
+
+async function handleDomainCheckout(request, response) {
+  if (!databaseConfigured || !REVOLUT_SECRET_KEY) {
+    return sendJson(response, 503, { error: "Pagamento momentaneamente non disponibile." });
+  }
+  if (isRateLimited(`domain-checkout:${requestIp(request)}`, 6)) {
+    return sendJson(response, 429, { error: "Troppi tentativi di pagamento. Riprova tra qualche minuto." });
+  }
+  const body = await readJsonBody(request, response);
+  if (!body) return;
+
+  const verificationId = orderText(body.verification_id, 36);
+  const activationToken = orderText(body.activation_token, 64);
+  const domain = normalizeDomainLabel(body.domain);
+  const planYears = Number(body.plan);
+  const amountCents = DOMAIN_PLAN_PRICES[planYears];
+  const order = {
+    companyName: orderText(body.company_name, 160),
+    vatNumber: orderText(body.vat_number, 32).toUpperCase(),
+    fiscalCode: orderText(body.fiscal_code, 32).toUpperCase() || null,
+    firstName: orderText(body.contact_first_name, 80),
+    lastName: orderText(body.contact_last_name, 80),
+    email: orderText(body.email, 120).toLowerCase(),
+    phone: orderText(body.phone, 40),
+    address: orderText(body.address, 200),
+    city: orderText(body.city, 100),
+    province: orderText(body.province, 2).toUpperCase(),
+    postalCode: orderText(body.postal_code, 16),
+    country: orderText(body.country, 2).toUpperCase()
+  };
+  const required = [
+    order.companyName, order.vatNumber, order.firstName, order.lastName, order.email,
+    order.phone, order.address, order.city, order.province, order.postalCode, order.country
+  ];
+  if (
+    !/^[0-9a-f-]{36}$/i.test(verificationId) || !/^[0-9a-f]{64}$/i.test(activationToken) ||
+    !isValidFullDomain(domain) || !amountCents || required.some((value) => !value) ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(order.email) || !/^[A-Z]{2}$/.test(order.province) ||
+    order.country !== "IT" || body.registration_consent !== true
+  ) {
+    return sendJson(response, 400, { error: "Controlla i dati dell'azienda e accetta le condizioni del servizio." });
+  }
+
+  try {
+    const verificationRows = await dbQuery(
+      "SELECT id, domain, email, activation_token_hash, verified_at FROM domain_activation_verifications WHERE id = ? LIMIT 1",
+      [verificationId]
+    );
+    const verification = verificationRows[0];
+    const verifiedRecently = verification?.verified_at &&
+      Date.now() - new Date(verification.verified_at).getTime() <= 30 * 60 * 1000;
+    if (
+      !verification || !verifiedRecently || !verification.activation_token_hash ||
+      !safeEqual(hashToken(activationToken), verification.activation_token_hash) ||
+      verification.domain !== domain || verification.email !== order.email
+    ) {
+      return sendJson(response, 401, { error: "La verifica email è scaduta. Richiedi un nuovo codice." });
+    }
+
+    const existingRows = await dbQuery(
+      "SELECT id, status, checkout_url FROM domain_service_orders WHERE verification_id = ? LIMIT 1",
+      [verificationId]
+    );
+    const existing = existingRows[0];
+    if (existing?.status === "pending" && existing.checkout_url) {
+      return sendJson(response, 200, { ok: true, orderId: existing.id, checkoutUrl: existing.checkout_url });
+    }
+    if (existing?.status === "completed") {
+      return sendJson(response, 409, { error: "Questo ordine risulta già pagato." });
+    }
+
+    const orderId = existing?.id || crypto.randomUUID();
+    const values = [
+      domain, planYears, amountCents, order.companyName, order.vatNumber, order.fiscalCode,
+      order.firstName, order.lastName, order.email, order.phone, order.address, order.city,
+      order.province, order.postalCode, order.country
+    ];
+    if (existing) {
+      await dbQuery(
+        "UPDATE domain_service_orders SET status = 'draft', domain = ?, plan_years = ?, amount_cents = ?, company_name = ?, vat_number = ?, fiscal_code = ?, contact_first_name = ?, contact_last_name = ?, email = ?, phone = ?, address = ?, city = ?, province = ?, postal_code = ?, country = ?, checkout_url = NULL, revolut_order_id = NULL WHERE id = ?",
+        [...values, orderId]
+      );
+    } else {
+      await dbQuery(
+        "INSERT INTO domain_service_orders (id, verification_id, domain, plan_years, amount_cents, company_name, vat_number, fiscal_code, contact_first_name, contact_last_name, email, phone, address, city, province, postal_code, country) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [orderId, verificationId, ...values]
+      );
+    }
+
+    const revolutPayload = {
+      amount: amountCents,
+      currency: "EUR",
+      description: `STAI SENZA PENSIER' ${planYears} anni - ${domain}`,
+      capture_mode: "automatic",
+      metadata: {
+        cro_order_id: orderId,
+        domain,
+        plan_years: String(planYears)
+      }
+    };
+    if (/^https:\/\//.test(PUBLIC_BASE_URL) || /^http:\/\/localhost(?::\d+)?$/.test(PUBLIC_BASE_URL)) {
+      revolutPayload.redirect_url = `${PUBLIC_BASE_URL}/servizi/stai-senza-pensier.html?payment=return&order=${encodeURIComponent(orderId)}`;
+    }
+    const revolutResponse = await fetch(`${REVOLUT_API_BASE}/api/orders`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${REVOLUT_SECRET_KEY}`,
+        "Content-Type": "application/json",
+        "Revolut-Api-Version": REVOLUT_API_VERSION,
+        "Idempotency-Key": orderId
+      },
+      body: JSON.stringify(revolutPayload),
+      signal: AbortSignal.timeout(15000)
+    });
+    const revolutText = await revolutResponse.text();
+    let revolutOrder = {};
+    try { revolutOrder = JSON.parse(revolutText); } catch { /* Risposta non JSON. */ }
+    if (!revolutResponse.ok || !revolutOrder.id || !revolutOrder.checkout_url) {
+      throw new Error(`Revolut ${revolutResponse.status}: ${revolutText.slice(0, 1000)}`);
+    }
+    await dbQuery(
+      "UPDATE domain_service_orders SET status = 'pending', revolut_order_id = ?, checkout_url = ? WHERE id = ?",
+      [revolutOrder.id, revolutOrder.checkout_url, orderId]
+    );
+    return sendJson(response, 201, {
+      ok: true,
+      orderId,
+      checkoutUrl: revolutOrder.checkout_url,
+      environment: REVOLUT_ENV
+    });
+  } catch (error) {
+    console.error("Errore creazione checkout dominio:", error.message, error.cause || "");
+    return sendJson(response, 502, { error: "Non siamo riusciti ad aprire il pagamento. Riprova tra poco." });
+  }
+}
+
 async function handleDomainCheck(request, response) {
   if (!HOSTINGER_API) {
     return sendJson(response, 503, { error: "Verifica dominio momentaneamente non disponibile." });
@@ -549,6 +697,7 @@ const server = http.createServer(async (request, response) => {
   if (request.method === "POST" && url.pathname === "/api/domains/whois") return handleDomainWhois(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/activation/request-code") return handleDomainActivationRequest(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/activation/verify-code") return handleDomainActivationVerify(request, response);
+  if (request.method === "POST" && url.pathname === "/api/domains/checkout") return handleDomainCheckout(request, response);
   if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     return fs.createReadStream(indexPath).pipe(response);
@@ -580,4 +729,5 @@ server.listen(PORT, () => {
     console.log(`Chat attiva: DB ${MYSQL_USER}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}`);
   }
   console.log(`Verifica dominio Hostinger: ${HOSTINGER_API ? "attiva" : "DISATTIVA (manca HOSTINGER_API)"}`);
+  console.log(`Checkout Revolut: ${REVOLUT_SECRET_KEY ? `attivo (${REVOLUT_ENV})` : "DISATTIVO (manca REVOLUT_SECRET_KEY)"}`);
 });
