@@ -326,6 +326,83 @@
     .domain-whois dd { margin: 0; word-break: break-word; }
     .domain-whois-msg { color: var(--muted); margin: 0; }
     @media (max-width: 520px) { .domain-whois dl { grid-template-columns: 1fr; gap: 0.15rem; } .domain-whois dt { margin-top: 0.4rem; } }
+    .activation-form-wrap {
+      margin-top: 1.2rem;
+      padding: 1.4rem;
+      border: 1px solid rgba(246, 183, 60, 0.3);
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(246, 183, 60, 0.08), rgba(255, 255, 255, 0.025));
+    }
+    .activation-form-wrap[hidden] { display: none; }
+    .activation-form-heading { margin-bottom: 1.2rem; }
+    .activation-form-heading h3 {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.35rem;
+      margin-bottom: 0.35rem;
+    }
+    .activation-form-heading p { color: var(--muted); font-size: 0.9rem; }
+    .selected-domain {
+      display: inline-flex;
+      margin-top: 0.7rem;
+      padding: 0.45rem 0.75rem;
+      border-radius: 999px;
+      background: rgba(119, 216, 179, 0.13);
+      color: #9ce8ca;
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+    }
+    .activation-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.9rem;
+    }
+    .activation-field { display: grid; gap: 0.35rem; }
+    .activation-field.is-wide { grid-column: 1 / -1; }
+    .activation-field span, .plan-legend { color: var(--muted); font-size: 0.78rem; font-weight: 700; }
+    .activation-field input, .activation-field select {
+      width: 100%;
+      padding: 0.82rem 0.9rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.045);
+      color: var(--text);
+      font: inherit;
+    }
+    .activation-field input:focus, .activation-field select:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+    .plan-choice { grid-column: 1 / -1; border: 0; padding: 0; margin: 0.25rem 0 0; }
+    .plan-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; margin-top: 0.5rem; }
+    .plan-option {
+      display: flex;
+      gap: 0.7rem;
+      align-items: flex-start;
+      padding: 0.9rem;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.025);
+      cursor: pointer;
+    }
+    .plan-option:has(input:checked) { border-color: var(--accent); background: rgba(246, 183, 60, 0.09); }
+    .plan-option input { margin-top: 0.25rem; accent-color: var(--accent); }
+    .plan-option strong { display: block; color: var(--text); }
+    .plan-option small { color: var(--muted); }
+    .activation-consent {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 0.65rem;
+      align-items: flex-start;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    .activation-consent input { margin-top: 0.25rem; accent-color: var(--accent); }
+    .activation-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+    .activation-status { color: var(--muted); font-size: 0.82rem; }
+    @media (max-width: 680px) {
+      .activation-grid, .plan-options { grid-template-columns: 1fr; }
+      .activation-field.is-wide, .plan-choice, .activation-consent, .activation-actions { grid-column: auto; }
+    }
   </style>
 </head>
 <body>
@@ -366,6 +443,87 @@
       <p class="domain-hint">Puoi scrivere anche l'estensione (es. <code>lamiaazienda.it</code>): la controlliamo per prima.</p>
       <p class="domain-status" id="domain-status" role="status" aria-live="polite"></p>
       <ul class="domain-results" id="domain-results" hidden></ul>
+      <div class="activation-form-wrap" id="activation-form-wrap" hidden>
+        <div class="activation-form-heading">
+          <h3>Attiva STAI SENZA PENSIER'</h3>
+          <p>Inserisci i dati dell'azienda che sarà intestataria del dominio.</p>
+          <span class="selected-domain" id="selected-domain"></span>
+        </div>
+        <form id="activation-form" class="activation-grid" novalidate>
+          <input id="activation-domain" name="domain" type="hidden">
+          <label class="activation-field is-wide">
+            <span>Ragione sociale *</span>
+            <input name="company_name" type="text" autocomplete="organization" required>
+          </label>
+          <label class="activation-field">
+            <span>Partita IVA *</span>
+            <input name="vat_number" type="text" inputmode="numeric" autocomplete="off" required>
+          </label>
+          <label class="activation-field">
+            <span>Codice fiscale</span>
+            <input name="fiscal_code" type="text" autocomplete="off">
+          </label>
+          <label class="activation-field">
+            <span>Nome referente *</span>
+            <input name="contact_first_name" type="text" autocomplete="given-name" required>
+          </label>
+          <label class="activation-field">
+            <span>Cognome referente *</span>
+            <input name="contact_last_name" type="text" autocomplete="family-name" required>
+          </label>
+          <label class="activation-field">
+            <span>Email *</span>
+            <input name="email" type="email" autocomplete="email" required>
+          </label>
+          <label class="activation-field">
+            <span>Telefono *</span>
+            <input name="phone" type="tel" autocomplete="tel" required>
+          </label>
+          <label class="activation-field is-wide">
+            <span>Indirizzo sede legale *</span>
+            <input name="address" type="text" autocomplete="street-address" required>
+          </label>
+          <label class="activation-field">
+            <span>Comune *</span>
+            <input name="city" type="text" autocomplete="address-level2" required>
+          </label>
+          <label class="activation-field">
+            <span>Provincia *</span>
+            <input name="province" type="text" maxlength="2" autocomplete="address-level1" required>
+          </label>
+          <label class="activation-field">
+            <span>CAP *</span>
+            <input name="postal_code" type="text" inputmode="numeric" autocomplete="postal-code" required>
+          </label>
+          <label class="activation-field">
+            <span>Paese *</span>
+            <select name="country" autocomplete="country" required>
+              <option value="IT">Italia</option>
+            </select>
+          </label>
+          <fieldset class="plan-choice">
+            <legend class="plan-legend">Scegli il pacchetto *</legend>
+            <div class="plan-options">
+              <label class="plan-option">
+                <input type="radio" name="plan" value="5" required>
+                <span><strong>5 anni · € 360</strong><small>Un unico pagamento, IVA inclusa</small></span>
+              </label>
+              <label class="plan-option">
+                <input type="radio" name="plan" value="10" required>
+                <span><strong>10 anni · € 690</strong><small>Un unico pagamento, IVA inclusa</small></span>
+              </label>
+            </div>
+          </fieldset>
+          <label class="activation-consent">
+            <input name="registration_consent" type="checkbox" required>
+            <span>Confermo che i dati sono corretti e autorizzo CRO Labs a registrare e gestire il dominio indicato secondo le condizioni del servizio. *</span>
+          </label>
+          <div class="activation-actions">
+            <button class="button button-primary" type="submit">Continua al pagamento</button>
+            <span class="activation-status" id="activation-status" role="status" aria-live="polite">Il pagamento sarà collegato nel prossimo passaggio.</span>
+          </div>
+        </form>
+      </div>
     </section>
 
     <section id="pacchetti" class="section" aria-label="Pacchetti e prezzi">
@@ -499,13 +657,20 @@
       const submit = document.getElementById("domain-submit");
       const statusEl = document.getElementById("domain-status");
       const list = document.getElementById("domain-results");
+      const activationWrap = document.getElementById("activation-form-wrap");
+      const activationForm = document.getElementById("activation-form");
+      const activationDomain = document.getElementById("activation-domain");
+      const selectedDomain = document.getElementById("selected-domain");
+      const activationStatus = document.getElementById("activation-status");
       if (!form) return;
 
-      const mailtoFor = (domain) =>
-        "mailto:info@cro-labs.it?subject=" +
-        encodeURIComponent("STAI SENZA PENSIER' - dominio " + domain) +
-        "&body=" +
-        encodeURIComponent("Vorrei attivare il pacchetto STAI SENZA PENSIER' per il dominio " + domain + ".");
+      function openActivationForm(domain) {
+        activationDomain.value = domain;
+        selectedDomain.textContent = domain;
+        activationWrap.hidden = false;
+        activationStatus.textContent = "Il pagamento sarà collegato nel prossimo passaggio.";
+        activationWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
 
       const fmtDate = (iso) => {
         if (!iso) return null;
@@ -618,10 +783,11 @@
             badge.textContent = item.available ? "Libero" : "Occupato";
             li.append(name, badge);
             if (item.available) {
-              const cta = document.createElement("a");
+              const cta = document.createElement("button");
+              cta.type = "button";
               cta.className = "button button-primary";
-              cta.href = mailtoFor(item.domain);
               cta.textContent = "Attivalo con noi";
+              cta.addEventListener("click", () => openActivationForm(item.domain));
               li.append(cta);
             } else {
               attachWhois(li, item.domain);
@@ -641,6 +807,12 @@
         } finally {
           submit.disabled = false;
         }
+      });
+
+      activationForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (!activationForm.reportValidity()) return;
+        activationStatus.textContent = "Dati completi. Ora possiamo collegare il checkout sicuro Revolut.";
       });
     })();
   </script>
