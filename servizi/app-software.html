@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CRO APP &amp; SOFTWARE | Web App, Mobile e AI — CRO Labs</title>
+  <meta name="description" content="CRO APP &amp; SOFTWARE: Web App, app Android e iOS, software su misura e integrazioni AI progettati da CRO Labs. Soluzioni da € 2.500.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #07111f;
+      --bg-soft: #0f2034;
+      --surface: rgba(14, 29, 47, 0.82);
+      --surface-strong: rgba(18, 39, 63, 0.95);
+      --text: #f4f2ea;
+      --muted: #b4c4d4;
+      --accent: #f6b73c;
+      --accent-strong: #ff8a3d;
+      --green: #77d8b3;
+      --line: rgba(255, 255, 255, 0.09);
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Manrope", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(246, 183, 60, 0.18), transparent 30%),
+        radial-gradient(circle at 85% 15%, rgba(68, 187, 164, 0.16), transparent 24%),
+        linear-gradient(160deg, var(--bg), var(--bg-soft) 55%, #15314a 100%);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    main { max-width: 1180px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    a { color: inherit; text-decoration: none; }
+    h1, h2, h3, p { margin: 0; }
+    strong { color: var(--accent); }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.5rem 0 1.5rem; }
+    .brand { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 1.05rem; }
+    .back-link { color: var(--muted); font-size: 0.88rem; font-weight: 700; }
+    .eyebrow, .pill {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      color: var(--muted);
+      padding: 0.55rem 0.9rem;
+      background: rgba(255, 255, 255, 0.04);
+      margin-bottom: 1.2rem;
+    }
+    .pill { padding: 0.45rem 0.75rem; margin-bottom: 1rem; }
+    .hero { padding: 1.5rem 0 2.6rem; }
+    .hero h1 {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: clamp(2.5rem, 7vw, 4.8rem);
+      line-height: 0.98;
+      letter-spacing: -0.045em;
+      max-width: 13ch;
+      margin-bottom: 1.2rem;
+    }
+    .hero > p { font-size: 1.08rem; color: var(--muted); max-width: 68ch; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-top: 1.6rem; }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.95rem 1.35rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      font-weight: 700;
+      transition: transform 180ms ease, border-color 180ms ease;
+    }
+    .button:hover { transform: translateY(-2px); }
+    .button-primary { background: linear-gradient(135deg, var(--accent), var(--accent-strong)); color: #0b1422; box-shadow: 0 18px 45px rgba(246, 183, 60, 0.25); }
+    .button-secondary { border-color: var(--line); background: rgba(255, 255, 255, 0.03); }
+    .quick-prices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.8rem; margin-top: 2rem; }
+    .quick-price { padding: 1rem; border: 1px solid var(--line); border-radius: 18px; background: rgba(255, 255, 255, 0.035); }
+    .quick-price span { display: block; color: var(--muted); font-size: 0.76rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+    .quick-price strong { display: block; margin-top: 0.25rem; font-family: "Space Grotesk", sans-serif; font-size: 1.08rem; }
+    .section { margin-top: 1.6rem; padding: 1.8rem; border: 1px solid var(--line); border-radius: 28px; background: rgba(8, 18, 31, 0.46); backdrop-filter: blur(10px); box-shadow: var(--shadow); }
+    .section-heading { margin-bottom: 1.4rem; }
+    .section-heading h2 { font-family: "Space Grotesk", sans-serif; font-size: clamp(1.65rem, 3vw, 2.2rem); line-height: 1.15; letter-spacing: -0.03em; margin-bottom: 0.55rem; }
+    .section-heading p { max-width: 68ch; color: var(--muted); }
+    .solution-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+    .solution-card { display: flex; flex-direction: column; padding: 1.5rem; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 24px; background: var(--surface); }
+    .solution-card.is-highlight { border-color: rgba(246, 183, 60, 0.35); background: linear-gradient(180deg, rgba(246, 183, 60, 0.09), rgba(255, 255, 255, 0.02)); }
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 0.8rem; }
+    .card-tag { color: var(--muted); font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
+    .card-price { flex: 0 0 auto; color: var(--accent); font-family: "Space Grotesk", sans-serif; font-size: 1.05rem; font-weight: 700; }
+    .solution-card h3 { font-family: "Space Grotesk", sans-serif; font-size: 1.55rem; line-height: 1.15; margin-bottom: 0.55rem; }
+    .solution-card > p { color: var(--muted); font-size: 0.94rem; }
+    .checklist { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: 0.55rem; }
+    .checklist li { display: flex; gap: 0.6rem; color: var(--muted); font-size: 0.9rem; }
+    .checklist li::before { content: "✓"; flex: 0 0 auto; color: var(--green); font-weight: 800; }
+    .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .feature-card { padding: 1.35rem; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 22px; background: var(--surface); }
+    .feature-card h3 { font-size: 1rem; margin-bottom: 0.45rem; }
+    .feature-card p { color: var(--muted); font-size: 0.9rem; }
+    .process-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; counter-reset: step; }
+    .process-card { counter-increment: step; padding: 1.25rem; border-top: 1px solid var(--line); }
+    .process-card::before { content: "0" counter(step); display: block; color: var(--accent); font-family: "Space Grotesk", sans-serif; font-weight: 700; margin-bottom: 0.45rem; }
+    .process-card h3 { font-size: 1rem; margin-bottom: 0.35rem; }
+    .process-card p { color: var(--muted); font-size: 0.88rem; }
+    .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .detail-card { padding: 1.35rem; border: 1px solid var(--line); border-radius: 22px; background: rgba(255, 255, 255, 0.025); }
+    .detail-card h3 { font-size: 1.05rem; margin-bottom: 0.45rem; }
+    .detail-card p, .detail-card li { color: var(--muted); font-size: 0.9rem; }
+    .detail-card ul { margin: 0.7rem 0 0; padding-left: 1.1rem; }
+    .accent-block { background: linear-gradient(135deg, rgba(246, 183, 60, 0.15), rgba(255, 138, 61, 0.07)); border-color: rgba(246, 183, 60, 0.24); }
+    .final-cta { text-align: center; padding: 2.5rem 1.8rem; }
+    .final-cta h2 { font-family: "Space Grotesk", sans-serif; font-size: clamp(1.7rem, 4vw, 2.5rem); line-height: 1.15; letter-spacing: -0.03em; margin-bottom: 0.75rem; }
+    .final-cta p { max-width: 62ch; margin: 0 auto; color: var(--muted); }
+    .final-cta .hero-actions { justify-content: center; }
+    .fineprint { color: var(--muted); font-size: 0.78rem; font-style: italic; margin-top: 1rem; }
+    footer { padding-top: 1.8rem; color: var(--muted); text-align: center; font-size: 0.9rem; }
+    @media (max-width: 860px) {
+      .quick-prices, .feature-grid, .process-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      main { padding-inline: 1rem; }
+      .section { padding: 1.25rem; border-radius: 22px; }
+      .solution-grid, .details-grid, .quick-prices, .feature-grid, .process-grid { grid-template-columns: 1fr; }
+      .card-top { display: block; }
+      .card-price { margin-top: 0.35rem; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="topbar">
+      <span class="brand">CRO Labs</span>
+      <a class="back-link" href="/servizi/">&larr; Tutti i servizi</a>
+    </div>
+
+    <header class="hero">
+      <span class="eyebrow">App · Web App · Mobile · AI</span>
+      <h1>Dall'idea a un prodotto digitale reale.</h1>
+      <p>Trasformiamo un'idea o un processo aziendale in uno strumento digitale progettato sulle esigenze reali della tua attività: dal browser allo smartphone, fino all'intelligenza artificiale.</p>
+      <div class="hero-actions">
+        <a class="button button-primary" href="mailto:info@cro-labs.it?subject=Richiesta%20preventivo%20CRO%20APP%20%26%20SOFTWARE">Raccontaci il tuo progetto</a>
+        <a class="button button-secondary" href="#soluzioni">Confronta le soluzioni</a>
+      </div>
+      <div class="quick-prices" aria-label="Prezzi indicativi">
+        <div class="quick-price"><span>Web App</span><strong>da € 2.500</strong></div>
+        <div class="quick-price"><span>App Mobile</span><strong>da € 3.500</strong></div>
+        <div class="quick-price"><span>App + Web</span><strong>da € 4.500</strong></div>
+        <div class="quick-price"><span>Intelligenza artificiale</span><strong>su preventivo</strong></div>
+      </div>
+    </header>
+
+    <section id="soluzioni" class="section" aria-label="Soluzioni CRO APP e SOFTWARE">
+      <div class="section-heading">
+        <span class="pill">Le soluzioni</span>
+        <h2>La tecnologia giusta per il modo in cui lavoreranno i tuoi utenti.</h2>
+        <p>Ogni progetto viene dimensionato sulle funzioni necessarie. Questi prezzi sono il punto di partenza per orientarsi.</p>
+      </div>
+      <div class="solution-grid">
+        <article class="solution-card is-highlight">
+          <div class="card-top"><span class="card-tag">Gestionale, portale o servizio online</span><span class="card-price">da € 2.500</span></div>
+          <h3>CRO WEB APP</h3>
+          <p>Un'applicazione accessibile dal browser, più avanzata di un normale sito e utilizzabile da computer, smartphone e tablet.</p>
+          <ul class="checklist">
+            <li>Aree riservate, utenti, ruoli e permessi</li>
+            <li>Dashboard, pannelli amministrativi e database</li>
+            <li>Prenotazioni, ordini, documenti, ticket e workflow</li>
+            <li>API, notifiche email e automazioni</li>
+          </ul>
+        </article>
+        <article class="solution-card">
+          <div class="card-top"><span class="card-tag">App Android e iOS</span><span class="card-price">da € 3.500</span></div>
+          <h3>CRO MOBILE</h3>
+          <p>Un'app installabile su smartphone, progettata per touchscreen e sviluppata con tecnologia multipiattaforma o specifica.</p>
+          <ul class="checklist">
+            <li>Login, profili e dati sincronizzati</li>
+            <li>Notifiche push quando previste</li>
+            <li>Fotocamera, QR code e geolocalizzazione</li>
+            <li>Supporto tecnico alla pubblicazione, se incluso</li>
+          </ul>
+        </article>
+        <article class="solution-card">
+          <div class="card-top"><span class="card-tag">Esperienza completa</span><span class="card-price">da € 4.500</span></div>
+          <h3>CRO APP + WEB</h3>
+          <p>Web App e app mobile condividono backend, account e dati: l'utente ritrova la stessa esperienza su ogni dispositivo.</p>
+          <ul class="checklist">
+            <li>Web App responsive</li>
+            <li>App Android e iOS</li>
+            <li>Backend e database centralizzati</li>
+            <li>Pannello amministrativo e API condivise</li>
+          </ul>
+        </article>
+        <article class="solution-card">
+          <div class="card-top"><span class="card-tag">AI integrata nei processi</span><span class="card-price">su preventivo</span></div>
+          <h3>CRO AI</h3>
+          <p>Non una chat aggiunta a caso, ma funzioni intelligenti costruite per semplificare attività, automatizzare processi o creare nuovi servizi.</p>
+          <ul class="checklist">
+            <li>Assistenti basati sui contenuti autorizzati</li>
+            <li>Ricerca intelligente in documenti e cataloghi</li>
+            <li>Analisi, classificazione e generazione assistita</li>
+            <li>Automazioni collegate a workflow, API e database</li>
+          </ul>
+        </article>
+      </div>
+      <p class="fineprint">Prezzi IVA inclusa ove applicabile al cliente finale. Il prezzo definitivo dipende dalle funzionalità richieste.</p>
+    </section>
+
+    <section class="section" aria-label="Integrazioni possibili">
+      <div class="section-heading">
+        <span class="pill">Integrazioni</span>
+        <h2>Il nuovo software può dialogare con gli strumenti che usi già.</h2>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card"><h3>Pagamenti online</h3><p>Collegamento a servizi di pagamento compatibili con il progetto.</p></article>
+        <article class="feature-card"><h3>Mappe e QR code</h3><p>Geolocalizzazione, percorsi, validazione e funzioni legate al territorio.</p></article>
+        <article class="feature-card"><h3>Comunicazioni</h3><p>Email, SMS, notifiche push e automazioni per utenti e operatori.</p></article>
+        <article class="feature-card"><h3>Sistemi aziendali</h3><p>Gestionali, CRM, software esterni e autenticazione collegati tramite API.</p></article>
+        <article class="feature-card"><h3>Dati e cloud</h3><p>Database, storage, dashboard, statistiche e report costruiti sui dati utili.</p></article>
+        <article class="feature-card"><h3>AI multimodale</h3><p>Funzioni che lavorano con testo, immagini o voce quando il caso d'uso lo richiede.</p></article>
+      </div>
+    </section>
+
+    <section class="section" aria-label="Come nasce un progetto">
+      <div class="section-heading">
+        <span class="pill">Il percorso</span>
+        <h2>Dal primo confronto alla pubblicazione, con passaggi chiari.</h2>
+      </div>
+      <div class="process-grid">
+        <article class="process-card"><h3>Analisi</h3><p>Raccogliamo obiettivi, utenti, funzioni e problemi da risolvere.</p></article>
+        <article class="process-card"><h3>Progettazione</h3><p>Definiamo struttura, schermate, flussi e architettura tecnica.</p></article>
+        <article class="process-card"><h3>Sviluppo</h3><p>Realizziamo frontend, backend, database e integrazioni previste.</p></article>
+        <article class="process-card"><h3>Test</h3><p>Verifichiamo i flussi principali e correggiamo le anomalie individuate.</p></article>
+        <article class="process-card"><h3>Pubblicazione</h3><p>Mettiamo online la Web App o supportiamo la distribuzione dell'app.</p></article>
+        <article class="process-card"><h3>Evoluzione</h3><p>Aggiungiamo nuove funzioni e miglioramenti con attività dedicate.</p></article>
+      </div>
+    </section>
+
+    <section class="section" aria-label="Informazioni commerciali">
+      <div class="section-heading">
+        <span class="pill">Trasparenza</span>
+        <h2>Cosa incide sul preventivo e cosa viene definito insieme.</h2>
+        <p>Due applicazioni simili all'apparenza possono richiedere quantità di lavoro molto diverse. Il preventivo parte dalle funzionalità effettive.</p>
+      </div>
+      <div class="details-grid">
+        <article class="detail-card">
+          <h3>Cosa determina il prezzo</h3>
+          <ul>
+            <li>Numero e complessità delle schermate</li>
+            <li>Utenti, ruoli, permessi e quantità di dati</li>
+            <li>Backend, API, pagamenti e integrazioni</li>
+            <li>Funzioni mobile native, AI e livello di design</li>
+          </ul>
+        </article>
+        <article class="detail-card">
+          <h3>Hosting e costi ricorrenti</h3>
+          <p>Hosting, cloud, database, storage, email, API, crediti AI e servizi di terzi sono separati dallo sviluppo e vengono indicati nel preventivo. La gestione tecnica può essere attivata con un piano dedicato.</p>
+        </article>
+        <article class="detail-card">
+          <h3>Store e manutenzione</h3>
+          <p>Account sviluppatore e costi richiesti da Apple, Google o altri fornitori non sono inclusi automaticamente. Dopo la consegna è possibile attivare manutenzione, monitoraggio, aggiornamenti, backup e assistenza.</p>
+        </article>
+        <article class="detail-card">
+          <h3>Codice e proprietà</h3>
+          <p>Titolarità del software, licenze, codice sorgente, componenti riutilizzabili, account store e modalità di consegna vengono specificati nel preventivo o nel contratto del progetto.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section accent-block final-cta" aria-label="Richiedi un preventivo">
+      <h2>Hai un'idea o un processo da semplificare?</h2>
+      <p>Partiamo dal problema da risolvere e costruiamo insieme il perimetro del progetto. Per i lavori strutturati il pagamento può essere suddiviso per fasi, con condizioni definite nel preventivo.</p>
+      <div class="hero-actions">
+        <a class="button button-primary" href="mailto:info@cro-labs.it?subject=Richiesta%20preventivo%20CRO%20APP%20%26%20SOFTWARE">Richiedi un confronto</a>
+        <a class="button button-secondary" href="tel:+393281156475">Chiama +39 328 115 6475</a>
+      </div>
+      <p class="fineprint">Prezzi, tempi e funzionalità sono indicativi. Servizi e costi di terzi sono esclusi salvo diversa indicazione.</p>
+    </section>
+
+    <footer>CRO Labs S.r.l. &mdash; P.IVA 11118861217 &middot; info@cro-labs.it</footer>
+  </main>
+</body>
+</html>

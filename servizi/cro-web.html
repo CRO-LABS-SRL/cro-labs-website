@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CRO WEB | Siti web professionali — CRO Labs</title>
+  <meta name="description" content="CRO WEB: siti One Page, siti aziendali e progetti web personalizzati, responsive e professionali. Pacchetti da € 490 IVA inclusa.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #07111f;
+      --bg-soft: #0f2034;
+      --surface: rgba(14, 29, 47, 0.82);
+      --text: #f4f2ea;
+      --muted: #b4c4d4;
+      --accent: #f6b73c;
+      --accent-strong: #ff8a3d;
+      --green: #77d8b3;
+      --line: rgba(255, 255, 255, 0.09);
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Manrope", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(246, 183, 60, 0.18), transparent 30%),
+        radial-gradient(circle at 85% 15%, rgba(68, 187, 164, 0.16), transparent 24%),
+        linear-gradient(160deg, var(--bg), var(--bg-soft) 55%, #15314a 100%);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    main { max-width: 1180px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    a { color: inherit; text-decoration: none; }
+    h1, h2, h3, p { margin: 0; }
+    strong { color: var(--accent); }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.5rem 0 1.5rem; }
+    .brand { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 1.05rem; }
+    .back-link { color: var(--muted); font-size: 0.88rem; font-weight: 700; }
+    .eyebrow, .pill {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      color: var(--muted);
+      padding: 0.55rem 0.9rem;
+      background: rgba(255, 255, 255, 0.04);
+      margin-bottom: 1.2rem;
+    }
+    .pill { padding: 0.45rem 0.75rem; margin-bottom: 1rem; }
+    .hero { padding: 1.5rem 0 2.6rem; }
+    .hero h1 { font-family: "Space Grotesk", sans-serif; font-size: clamp(2.5rem, 7vw, 4.8rem); line-height: 0.98; letter-spacing: -0.045em; max-width: 13ch; margin-bottom: 1.2rem; }
+    .hero > p { font-size: 1.08rem; color: var(--muted); max-width: 68ch; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-top: 1.6rem; }
+    .button { display: inline-flex; align-items: center; justify-content: center; padding: 0.95rem 1.35rem; border-radius: 999px; border: 1px solid transparent; font-weight: 700; transition: transform 180ms ease, border-color 180ms ease; }
+    .button:hover { transform: translateY(-2px); }
+    .button-primary { background: linear-gradient(135deg, var(--accent), var(--accent-strong)); color: #0b1422; box-shadow: 0 18px 45px rgba(246, 183, 60, 0.25); }
+    .button-secondary { border-color: var(--line); background: rgba(255, 255, 255, 0.03); }
+    .quick-prices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; margin-top: 2rem; }
+    .quick-price { padding: 1rem; border: 1px solid var(--line); border-radius: 18px; background: rgba(255, 255, 255, 0.035); }
+    .quick-price span { display: block; color: var(--muted); font-size: 0.76rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+    .quick-price strong { display: block; margin-top: 0.25rem; font-family: "Space Grotesk", sans-serif; font-size: 1.08rem; }
+    .section { margin-top: 1.6rem; padding: 1.8rem; border: 1px solid var(--line); border-radius: 28px; background: rgba(8, 18, 31, 0.46); backdrop-filter: blur(10px); box-shadow: var(--shadow); }
+    .section-heading { margin-bottom: 1.4rem; }
+    .section-heading h2 { font-family: "Space Grotesk", sans-serif; font-size: clamp(1.65rem, 3vw, 2.2rem); line-height: 1.15; letter-spacing: -0.03em; margin-bottom: 0.55rem; }
+    .section-heading p { max-width: 68ch; color: var(--muted); }
+    .plan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .plan-card { display: flex; flex-direction: column; padding: 1.5rem; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 24px; background: var(--surface); }
+    .plan-card.is-highlight { border-color: rgba(246, 183, 60, 0.38); background: linear-gradient(180deg, rgba(246, 183, 60, 0.09), rgba(255, 255, 255, 0.02)); }
+    .plan-tag { color: var(--muted); font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
+    .plan-card h3 { font-family: "Space Grotesk", sans-serif; font-size: 1.55rem; line-height: 1.15; margin-top: 0.55rem; }
+    .price { font-family: "Space Grotesk", sans-serif; font-size: 2rem; margin: 0.5rem 0 0.35rem; }
+    .price small { display: block; color: var(--muted); font-family: "Manrope", sans-serif; font-size: 0.75rem; font-weight: 500; }
+    .plan-card > p:not(.price) { color: var(--muted); font-size: 0.9rem; }
+    .checklist { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: 0.55rem; }
+    .checklist li { display: flex; gap: 0.6rem; color: var(--muted); font-size: 0.88rem; }
+    .checklist li::before { content: "✓"; flex: 0 0 auto; color: var(--green); font-weight: 800; }
+    .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .feature-card { padding: 1.35rem; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 22px; background: var(--surface); }
+    .feature-card h3 { font-size: 1rem; margin-bottom: 0.45rem; }
+    .feature-card p { color: var(--muted); font-size: 0.9rem; }
+    .extras-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+    .extra-card { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.2rem; border: 1px solid var(--line); border-radius: 18px; background: rgba(255, 255, 255, 0.025); }
+    .extra-card h3 { font-size: 0.98rem; }
+    .extra-card p { color: var(--muted); font-size: 0.84rem; margin-top: 0.25rem; }
+    .extra-price { flex: 0 0 auto; color: var(--accent); font-weight: 800; font-size: 0.9rem; }
+    .details-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+    .detail-card { padding: 1.35rem; border: 1px solid var(--line); border-radius: 22px; background: rgba(255, 255, 255, 0.025); }
+    .detail-card h3 { font-size: 1.05rem; margin-bottom: 0.45rem; }
+    .detail-card p { color: var(--muted); font-size: 0.9rem; }
+    .managed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .managed-card { padding: 1.4rem; border: 1px solid rgba(119, 216, 179, 0.22); border-radius: 22px; background: rgba(119, 216, 179, 0.045); }
+    .managed-card span { color: var(--green); font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
+    .managed-card h3 { font-family: "Space Grotesk", sans-serif; font-size: 1.35rem; margin: 0.4rem 0; }
+    .managed-card p { color: var(--muted); font-size: 0.9rem; }
+    .accent-block { background: linear-gradient(135deg, rgba(246, 183, 60, 0.15), rgba(255, 138, 61, 0.07)); border-color: rgba(246, 183, 60, 0.24); }
+    .final-cta { text-align: center; padding: 2.5rem 1.8rem; }
+    .final-cta h2 { font-family: "Space Grotesk", sans-serif; font-size: clamp(1.7rem, 4vw, 2.5rem); line-height: 1.15; letter-spacing: -0.03em; margin-bottom: 0.75rem; }
+    .final-cta p { max-width: 62ch; margin: 0 auto; color: var(--muted); }
+    .final-cta .hero-actions { justify-content: center; }
+    .fineprint { color: var(--muted); font-size: 0.78rem; font-style: italic; margin-top: 1rem; }
+    footer { padding-top: 1.8rem; color: var(--muted); text-align: center; font-size: 0.9rem; }
+    @media (max-width: 860px) { .plan-grid, .feature-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 640px) {
+      main { padding-inline: 1rem; }
+      .section { padding: 1.25rem; border-radius: 22px; }
+      .quick-prices, .extras-grid, .details-grid, .managed-grid { grid-template-columns: 1fr; }
+      .extra-card { display: block; }
+      .extra-price { display: block; margin-top: 0.45rem; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="topbar">
+      <span class="brand">CRO Labs</span>
+      <a class="back-link" href="/servizi/">&larr; Tutti i servizi</a>
+    </div>
+
+    <header class="hero">
+      <span class="eyebrow">CRO WEB · Siti web professionali</span>
+      <h1>Il tuo business merita un sito fatto bene.</h1>
+      <p>Dalla presenza online essenziale al progetto web personalizzato: realizziamo siti responsive, semplici da usare e pensati per presentare al meglio aziende, attività commerciali e professionisti.</p>
+      <div class="hero-actions">
+        <a class="button button-primary" href="mailto:info@cro-labs.it?subject=Richiesta%20preventivo%20CRO%20WEB">Richiedi un preventivo</a>
+        <a class="button button-secondary" href="#pacchetti">Confronta i pacchetti</a>
+      </div>
+      <div class="quick-prices" aria-label="Prezzi pacchetti CRO WEB">
+        <div class="quick-price"><span>One · One Page</span><strong>€ 490</strong></div>
+        <div class="quick-price"><span>Business · fino a 5 pagine</span><strong>€ 890</strong></div>
+        <div class="quick-price"><span>Pro · su misura</span><strong>da € 1.490</strong></div>
+      </div>
+    </header>
+
+    <section id="pacchetti" class="section" aria-label="Pacchetti CRO WEB">
+      <div class="section-heading">
+        <span class="pill">I pacchetti</span>
+        <h2>Una soluzione proporzionata alla tua presenza online.</h2>
+        <p>Prezzi IVA inclusa. Contenuti, struttura e funzionalità vengono confermati nel preventivo.</p>
+      </div>
+      <div class="plan-grid">
+        <article class="plan-card">
+          <span class="plan-tag">Presenza essenziale</span>
+          <h3>CRO WEB One</h3>
+          <p class="price">€ 490<small>2 cicli di revisione inclusi</small></p>
+          <p>Tutte le informazioni principali in una singola pagina moderna e facile da consultare.</p>
+          <ul class="checklist">
+            <li>One Page responsive e coordinata al brand</li>
+            <li>Attività, servizi e informazioni principali</li>
+            <li>Telefono, email, WhatsApp e social</li>
+            <li>Mappa, modulo contatti e gallery semplice</li>
+            <li>HTTPS/SSL e SEO tecnica di base</li>
+          </ul>
+        </article>
+        <article class="plan-card is-highlight">
+          <span class="plan-tag">Pacchetto consigliato</span>
+          <h3>CRO WEB Business</h3>
+          <p class="price">€ 890<small>3 cicli di revisione inclusi</small></p>
+          <p>Il sito aziendale completo per organizzare i contenuti in sezioni separate e raccontare meglio l'attività.</p>
+          <ul class="checklist">
+            <li>Fino a 5 pagine</li>
+            <li>Design responsive personalizzato sul brand</li>
+            <li>Navigazione chiara e professionale</li>
+            <li>Contatti, WhatsApp, Maps, social e gallery</li>
+            <li>HTTPS/SSL e SEO tecnica di base</li>
+          </ul>
+        </article>
+        <article class="plan-card">
+          <span class="plan-tag">Progetto personalizzato</span>
+          <h3>CRO WEB Pro</h3>
+          <p class="price">da € 1.490<small>fasi e revisioni definite nel preventivo</small></p>
+          <p>Per progetti che richiedono qualcosa in più di un normale sito vetrina.</p>
+          <ul class="checklist">
+            <li>Pagine e struttura su misura</li>
+            <li>CMS, multilingua, cataloghi o menu</li>
+            <li>Richieste di prenotazione e moduli avanzati</li>
+            <li>API, aree riservate e funzioni personalizzate</li>
+            <li>Database e componenti dinamici quando necessari</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" aria-label="Caratteristiche dei siti CRO LABS">
+      <div class="section-heading">
+        <span class="pill">Incluso nel progetto</span>
+        <h2>Progettato per funzionare bene, soprattutto da smartphone.</h2>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card"><h3>Mobile first</h3><p>Layout, testi, immagini, pulsanti e contatti si adattano alle diverse dimensioni dello schermo.</p></article>
+        <article class="feature-card"><h3>SEO tecnica di base</h3><p>Struttura ordinata delle pagine e degli elementi principali utili ai motori di ricerca.</p></article>
+        <article class="feature-card"><h3>Revisioni organizzate</h3><p>Ogni ciclo raccoglie una lista di modifiche e la applica al progetto in modo chiaro.</p></article>
+      </div>
+      <p class="fineprint">La SEO di base non comprende campagne continuative, posizionamento garantito su Google o produzione periodica di contenuti.</p>
+    </section>
+
+    <section class="section" aria-label="Servizi aggiuntivi CRO WEB">
+      <div class="section-heading">
+        <span class="pill">Servizi aggiuntivi</span>
+        <h2>Se serve, possiamo occuparci anche dei contenuti e dell'identità visiva.</h2>
+      </div>
+      <div class="extras-grid">
+        <article class="extra-card"><div><h3>Preparazione e copywriting</h3><p>Testi e contenuti pronti per le pagine del sito.</p></div><span class="extra-price">da € 90</span></article>
+        <article class="extra-card"><div><h3>Logo o restyling</h3><p>Creazione o revisione dell'identità visiva.</p></div><span class="extra-price">da € 150</span></article>
+        <article class="extra-card"><div><h3>Versione multilingua</h3><p>In base alla quantità e alla struttura dei contenuti.</p></div><span class="extra-price">da € 100 / lingua</span></article>
+        <article class="extra-card"><div><h3>Cataloghi e contenuti estesi</h3><p>Menu, prodotti o grandi quantità di informazioni.</p></div><span class="extra-price">su preventivo</span></article>
+      </div>
+    </section>
+
+    <section class="section" aria-label="Hosting e manutenzione">
+      <div class="section-heading">
+        <span class="pill">Gestione tecnica</span>
+        <h2>Hosting e manutenzione restano flessibili.</h2>
+        <p>Non sono inclusi automaticamente nella realizzazione: puoi scegliere il livello di gestione più adatto.</p>
+      </div>
+      <div class="managed-grid">
+        <article class="managed-card"><span>da € 99/anno · IVA inclusa</span><h3>CRO HOST</h3><p>Hosting gestito, HTTPS/SSL, backup e gestione tecnica secondo il piano concordato.</p></article>
+        <article class="managed-card"><span>da € 199/anno · IVA inclusa</span><h3>CRO CARE</h3><p>Gestione continuativa con hosting, backup, monitoraggio, aggiornamenti e piccoli interventi secondo l'offerta.</p></article>
+      </div>
+    </section>
+
+    <section class="section" aria-label="Informazioni per iniziare">
+      <div class="section-heading">
+        <span class="pill">Prima di iniziare</span>
+        <h2>Materiali, revisioni e pagamenti definiti con chiarezza.</h2>
+      </div>
+      <div class="details-grid">
+        <article class="detail-card"><h3>Cosa fornisce il cliente</h3><p>Salvo servizi aggiuntivi, logo, testi, fotografie, contatti, listini, menu e altre informazioni necessarie. CRO LABS organizza il materiale nel progetto.</p></article>
+        <article class="detail-card"><h3>Revisioni aggiuntive</h3><p>Nuove funzionalità, revisioni ulteriori o cambiamenti sostanziali rispetto al progetto approvato possono essere quotati separatamente.</p></article>
+        <article class="detail-card"><h3>Pagamento One e Business</h3><p>Salvo diverso accordo: 50% all'accettazione del preventivo e saldo del 50% prima della pubblicazione.</p></article>
+        <article class="detail-card"><h3>Pagamento Pro</h3><p>Le fasi vengono definite nel preventivo in base alla complessità e alle attività di sviluppo previste.</p></article>
+      </div>
+    </section>
+
+    <section class="section accent-block final-cta" aria-label="Richiedi il tuo sito">
+      <h2>Dal sito alla soluzione completa, con un unico interlocutore.</h2>
+      <p>Su richiesta possiamo occuparci anche di dominio, email professionale, hosting e gestione tecnica.</p>
+      <div class="hero-actions">
+        <a class="button button-primary" href="mailto:info@cro-labs.it?subject=Richiesta%20preventivo%20CRO%20WEB">Parliamo del tuo sito</a>
+        <a class="button button-secondary" href="tel:+393281156475">Chiama +39 328 115 6475</a>
+      </div>
+      <p class="fineprint">Funzionalità e prezzi possono essere personalizzati. Le condizioni definitive sono quelle indicate nel preventivo e nell'ordine accettato.</p>
+    </section>
+
+    <footer>CRO Labs S.r.l. &mdash; P.IVA 11118861217 &middot; info@cro-labs.it</footer>
+  </main>
+</body>
+</html>
