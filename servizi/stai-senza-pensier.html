@@ -971,13 +971,42 @@
 
       const returnParams = new URLSearchParams(window.location.search);
       if (returnParams.get("payment") === "return") {
-        const orderReference = String(returnParams.get("order") || "").slice(0, 8);
+        const returnedOrderId = String(returnParams.get("order") || "");
+        const orderReference = returnedOrderId.slice(0, 8);
         activationWrap.hidden = false;
         emailVerificationForm.hidden = true;
         activationForm.hidden = true;
         selectedDomain.textContent = orderReference ? "Ordine " + orderReference : "Pagamento Revolut";
-        stepDescription.textContent = "Sei tornato da Revolut. Stiamo verificando l'esito del pagamento; non chiudere o ripetere l'ordine.";
+        stepDescription.textContent = "Sei tornato da Revolut. Stiamo verificando l'esito del pagamento...";
         activationWrap.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        const statusMessages = {
+          completed: "Pagamento confermato. Abbiamo ricevuto correttamente il tuo ordine.",
+          failed: "Il pagamento non è riuscito. Puoi ripetere la procedura.",
+          cancelled: "Pagamento annullato. Non è stato effettuato alcun acquisto.",
+          pending: "Pagamento in verifica. Attendi qualche secondo...",
+          draft: "Preparazione del pagamento in corso..."
+        };
+        async function pollOrderStatus(attempt = 0) {
+          if (!/^[0-9a-f-]{36}$/i.test(returnedOrderId)) {
+            stepDescription.textContent = "Riferimento ordine non valido. Contatta CRO Labs.";
+            return;
+          }
+          try {
+            const response = await fetch("/api/domains/order-status?order=" + encodeURIComponent(returnedOrderId));
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Stato non disponibile.");
+            stepDescription.textContent = statusMessages[result.status] || "Stato del pagamento in aggiornamento...";
+            if ((result.status === "pending" || result.status === "draft") && attempt < 14) {
+              window.setTimeout(() => pollOrderStatus(attempt + 1), 2000);
+            } else if ((result.status === "pending" || result.status === "draft") && attempt >= 14) {
+              stepDescription.textContent = "Pagamento ancora in verifica. Riceverai conferma appena completato.";
+            }
+          } catch (error) {
+            stepDescription.textContent = error.message || "Non riusciamo a verificare il pagamento. Contatta CRO Labs.";
+          }
+        }
+        pollOrderStatus();
       }
     })();
   </script>

@@ -119,8 +119,37 @@ insieme alla relativa chiave Production. `PUBLIC_BASE_URL` permette a Revolut di
 cliente sulla pagina dopo il checkout. Eseguire anche la `CREATE TABLE domain_service_orders`
 presente in `schema.sql`.
 
-Il ritorno del browser non costituisce prova del pagamento: lo stato definitivo verra gestito
-dal webhook Revolut nel passaggio successivo, prima di acquistare il dominio tramite Hostinger.
+Il ritorno del browser non costituisce prova del pagamento: lo stato definitivo viene gestito
+dal webhook Revolut prima di acquistare il dominio tramite Hostinger.
+
+### Webhook Revolut
+
+Registrare nel Merchant Sandbox il seguente URL pubblico:
+
+```text
+https://cro-labs.it/api/revolut/webhook
+```
+
+Eventi da abilitare:
+
+- `ORDER_COMPLETED`
+- `ORDER_AUTHORISED`
+- `ORDER_CANCELLED`
+- `ORDER_FAILED`
+
+Alla creazione Revolut restituisce un `signing_secret`: salvarlo sul server e riavviare Node.
+
+```env
+REVOLUT_WEBHOOK_SECRET=signing_secret_del_webhook_sandbox
+```
+
+Il server rifiuta webhook con firma errata o timestamp distante piu di 5 minuti, supporta firme
+multiple durante la rotazione del segreto e rilegge l'ordine dalla Merchant API prima di aggiornare
+`domain_service_orders`. Per un ordine completato controlla anche che importo e valuta coincidano.
+Le consegne duplicate sono sicure: l'aggiornamento dello stato e idempotente.
+
+La pagina di ritorno interroga `GET /api/domains/order-status?order=<id>` per mostrare al cliente
+lo stato confermato dal webhook. Il dominio non viene ancora acquistato automaticamente.
 
 ## Email con Resend
 

@@ -33,6 +33,7 @@ const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL;
 const EMAIL_FROM = process.env.EMAIL_FROM || "CRO Labs <onboarding@resend.dev>";
 const HOSTINGER_API = process.env.HOSTINGER_API || process.env.HOSTINGER_API_TOKEN;
 const REVOLUT_SECRET_KEY = process.env.REVOLUT_SECRET_KEY;
+const REVOLUT_WEBHOOK_SECRET = process.env.REVOLUT_WEBHOOK_SECRET;
 const REVOLUT_ENV = String(process.env.REVOLUT_ENV || "sandbox").toLowerCase();
 const REVOLUT_API_BASE = REVOLUT_ENV === "production"
   ? "https://merchant.revolut.com"
@@ -67,6 +68,11 @@ function serveServiziPage(response, pathname) {
 function sendJson(response, status, body) {
   response.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
   response.end(JSON.stringify(body));
+}
+
+function sendEmpty(response, status = 204) {
+  response.writeHead(status, { "Cache-Control": "no-store" });
+  response.end();
 }
 
 function escapeHtml(value) {
@@ -563,6 +569,122 @@ async function handleDomainCheckout(request, response) {
   }
 }
 
+async function fetchRevolutOrder(revolutOrderId) {
+  const revolutResponse = await fetch(`${REVOLUT_API_BASE}/api/orders/${encodeURIComponent(revolutOrderId)}`, {
+    headers: {
+      "Authorization": `Bearer ${REVOLUT_SECRET_KEY}`,
+      "Accept": "application/json",
+      "Revolut-Api-Version": REVOLUT_API_VERSION
+    },
+    signal: AbortSignal.timeout(15000)
+  });
+  const text = await revolutResponse.text();
+  if (!revolutResponse.ok) throw new Error(`Revolut ${revolutResponse.status}: ${text.slice(0, 1000)}`);
+  return JSON.parse(text);
+}
+
+function localStatusForRevolutState(state) {
+  if (state === "completed") return "completed";
+  if (state === "cancelled") return "cancelled";
+  if (state === "failed") return "failed";
+  return "pending";
+}
+
+async function syncRevolutOrder(revolutOrderId) {
+  const rows = await dbQuery(
+    "SELECT id, amount_cents, currency, status FROM domain_service_orders WHERE revolut_order_id = ? LIMIT 1",
+    [revolutOrderId]
+  );
+  const localOrder = rows[0];
+  if (!localOrder) return null;
+  const revolutOrder = await fetchRevolutOrder(revolutOrderId);
+  const nextStatus = localStatusForRevolutState(String(revolutOrder.state || "").toLowerCase());
+  if (
+    nextStatus === "completed" &&
+    (Number(revolutOrder.amount) !== Number(localOrder.amount_cents) ||
+      String(revolutOrder.currency || "").toUpperCase() !== String(localOrder.currency).toUpperCase())
+  ) {
+    throw new Error(`Importo o valuta Revolut non corrispondenti per ordine ${localOrder.id}`);
+  }
+  await dbQuery("UPDATE domain_service_orders SET status = ? WHERE id = ?", [nextStatus, localOrder.id]);
+  return { id: localOrder.id, status: nextStatus };
+}
+
+async function readRevolutWebhookBody(request, response) {
+  let rawBody = "";
+  for await (const chunk of request) {
+    rawBody += chunk;
+    if (rawBody.length > 16_000) {
+      sendJson(response, 413, { error: "Payload troppo grande." });
+      return null;
+    }
+  }
+  return rawBody;
+}
+
+function verifyRevolutWebhookSignature(rawBody, timestamp, signatureHeader) {
+  if (!REVOLUT_WEBHOOK_SECRET || !/^\d{13}$/.test(timestamp || "")) return false;
+  if (Math.abs(Date.now() - Number(timestamp)) > 5 * 60 * 1000) return false;
+  const payloadToSign = `v1.${timestamp}.${rawBody}`;
+  const expected = `v1=${crypto.createHmac("sha256", REVOLUT_WEBHOOK_SECRET).update(payloadToSign).digest("hex")}`;
+  return String(signatureHeader || "")
+    .split(",")
+    .map((signature) => signature.trim())
+    .some((signature) => safeEqual(signature, expected));
+}
+
+async function handleRevolutWebhook(request, response) {
+  if (!databaseConfigured || !REVOLUT_SECRET_KEY || !REVOLUT_WEBHOOK_SECRET) {
+    return sendJson(response, 503, { error: "Webhook non configurato." });
+  }
+  const rawBody = await readRevolutWebhookBody(request, response);
+  if (rawBody === null) return;
+  const timestamp = String(request.headers["revolut-request-timestamp"] || "");
+  const signature = String(request.headers["revolut-signature"] || "");
+  if (!verifyRevolutWebhookSignature(rawBody, timestamp, signature)) {
+    return sendJson(response, 401, { error: "Firma webhook non valida." });
+  }
+  let event;
+  try {
+    event = JSON.parse(rawBody);
+  } catch {
+    return sendJson(response, 400, { error: "Payload webhook non valido." });
+  }
+  const eventName = String(event.event || "");
+  const revolutOrderId = String(event.order_id || "");
+  if (!/^[0-9a-f-]{36}$/i.test(revolutOrderId)) {
+    return sendJson(response, 400, { error: "Ordine webhook non valido." });
+  }
+  const relevantEvents = new Set([
+    "ORDER_COMPLETED", "ORDER_CANCELLED", "ORDER_FAILED", "ORDER_AUTHORISED"
+  ]);
+  if (!relevantEvents.has(eventName)) return sendEmpty(response);
+  try {
+    await syncRevolutOrder(revolutOrderId);
+    return sendEmpty(response);
+  } catch (error) {
+    console.error("Errore webhook Revolut:", error.message, error.cause || "");
+    return sendJson(response, 500, { error: "Errore temporaneo." });
+  }
+}
+
+async function handleDomainOrderStatus(request, response, url) {
+  if (!databaseConfigured) return sendJson(response, 503, { error: "Stato ordine non disponibile." });
+  const orderId = String(url.searchParams.get("order") || "");
+  if (!/^[0-9a-f-]{36}$/i.test(orderId)) return sendJson(response, 400, { error: "Ordine non valido." });
+  try {
+    const rows = await dbQuery(
+      "SELECT status FROM domain_service_orders WHERE id = ? LIMIT 1",
+      [orderId]
+    );
+    if (!rows[0]) return sendJson(response, 404, { error: "Ordine non trovato." });
+    return sendJson(response, 200, { status: rows[0].status });
+  } catch (error) {
+    console.error("Errore stato ordine dominio:", error.message, error.cause || "");
+    return sendJson(response, 502, { error: "Stato ordine non disponibile." });
+  }
+}
+
 async function handleDomainCheck(request, response) {
   if (!HOSTINGER_API) {
     return sendJson(response, 503, { error: "Verifica dominio momentaneamente non disponibile." });
@@ -698,6 +820,8 @@ const server = http.createServer(async (request, response) => {
   if (request.method === "POST" && url.pathname === "/api/domains/activation/request-code") return handleDomainActivationRequest(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/activation/verify-code") return handleDomainActivationVerify(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/checkout") return handleDomainCheckout(request, response);
+  if (request.method === "POST" && url.pathname === "/api/revolut/webhook") return handleRevolutWebhook(request, response);
+  if (request.method === "GET" && url.pathname === "/api/domains/order-status") return handleDomainOrderStatus(request, response, url);
   if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     return fs.createReadStream(indexPath).pipe(response);
@@ -730,4 +854,5 @@ server.listen(PORT, () => {
   }
   console.log(`Verifica dominio Hostinger: ${HOSTINGER_API ? "attiva" : "DISATTIVA (manca HOSTINGER_API)"}`);
   console.log(`Checkout Revolut: ${REVOLUT_SECRET_KEY ? `attivo (${REVOLUT_ENV})` : "DISATTIVO (manca REVOLUT_SECRET_KEY)"}`);
+  console.log(`Webhook Revolut: ${REVOLUT_WEBHOOK_SECRET ? "attivo" : "DISATTIVO (manca REVOLUT_WEBHOOK_SECRET)"}`);
 });
