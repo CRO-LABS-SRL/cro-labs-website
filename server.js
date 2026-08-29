@@ -4,6 +4,20 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const mysql = require("mysql2/promise");
 
+// Carica un eventuale file .env accanto a server.js (senza sovrascrivere variabili gia impostate).
+try {
+  const envFile = fs.readFileSync(path.join(__dirname, ".env"), "utf8");
+  for (const line of envFile.split("\n")) {
+    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (!match) continue;
+    const key = match[1];
+    let value = match[2].trim().replace(/^["']|["']$/g, "");
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
+} catch {
+  // Nessun file .env: si usano solo le variabili d'ambiente del sistema.
+}
+
 const PORT = Number(process.env.PORT) || 3000;
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -319,4 +333,12 @@ const server = http.createServer(async (request, response) => {
   return sendJson(response, 404, { error: "Pagina non trovata." });
 });
 
-server.listen(PORT, () => console.log(`CRO Labs online sulla porta ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`CRO Labs online sulla porta ${PORT}`);
+  const mancanti = ["MYSQL_USER", "MYSQL_PASSWORD", "MYSQL_DATABASE"].filter((name) => !process.env[name]);
+  if (mancanti.length) {
+    console.warn(`Chat DISATTIVA: variabili database mancanti -> ${mancanti.join(", ")}`);
+  } else {
+    console.log(`Chat attiva: DB ${MYSQL_USER}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}`);
+  }
+});
