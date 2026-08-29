@@ -239,6 +239,74 @@
       main { padding-inline: 1rem; }
       .section { padding: 1.25rem; border-radius: 22px; }
     }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .domain-form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 0.4rem;
+    }
+    .domain-field { flex: 1 1 260px; display: flex; }
+    .domain-field input {
+      width: 100%;
+      padding: 0.95rem 1.1rem;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font: inherit;
+    }
+    .domain-field input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .domain-form .button { flex: 0 0 auto; }
+    .domain-hint { color: var(--muted); font-size: 0.8rem; margin-top: 0.6rem; }
+    .domain-hint code, .domain-results code {
+      background: rgba(255, 255, 255, 0.06);
+      padding: 0.05rem 0.35rem;
+      border-radius: 6px;
+    }
+    .domain-status { margin-top: 0.9rem; font-size: 0.9rem; color: var(--muted); min-height: 1.2em; }
+    .domain-status.is-error { color: #ff9d80; }
+    .domain-results {
+      list-style: none;
+      margin: 1rem 0 0;
+      padding: 0;
+      display: grid;
+      gap: 0.6rem;
+    }
+    .domain-results li {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+      padding: 0.85rem 1rem;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface);
+    }
+    .domain-name { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 1rem; }
+    .domain-badge {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+    }
+    .domain-badge.is-free { color: #0b1422; background: #77d8b3; }
+    .domain-badge.is-taken { color: #ffd9cd; background: rgba(242, 118, 91, 0.22); }
+    .domain-results li .button { margin-left: auto; padding: 0.6rem 1rem; font-size: 0.85rem; }
+    .domain-restriction { flex-basis: 100%; color: var(--muted); font-size: 0.78rem; }
+    @media (max-width: 520px) { .domain-results li .button { margin-left: 0; } }
   </style>
 </head>
 <body>
@@ -256,9 +324,29 @@
         rinnovi, DNS e configurazioni email. Un unico pagamento e per anni non ci pensi più.
       </p>
       <div class="hero-actions">
-        <a class="button button-primary" href="#pacchetti">Vedi i pacchetti e i prezzi</a>
+        <a class="button button-primary" href="#verifica">Verifica il tuo dominio</a>
+        <a class="button button-secondary" href="#pacchetti">Vedi i pacchetti e i prezzi</a>
         <a class="button button-secondary" href="mailto:info@cro-labs.it?subject=Richiesta%20informazioni%20STAI%20SENZA%20PENSIER">Scrivici per attivarlo</a>
       </div>
+    </section>
+
+    <section id="verifica" class="section" aria-label="Verifica disponibilita dominio">
+      <div class="section-heading">
+        <span class="pill">Verifica dominio</span>
+        <h2>Controlla se il nome che vuoi è ancora libero.</h2>
+        <p>Scrivi il nome che hai in mente: controlliamo in tempo reale la disponibilità sulle estensioni più richieste. Se è libero, lo attiviamo noi con il pacchetto STAI SENZA PENSIER'.</p>
+      </div>
+      <form id="domain-form" class="domain-form" novalidate>
+        <label class="domain-field">
+          <span class="sr-only">Nome dominio</span>
+          <input id="domain-input" name="domain" type="text" inputmode="url" autocapitalize="none"
+                 autocomplete="off" spellcheck="false" placeholder="es. lamiaazienda" maxlength="63" required>
+        </label>
+        <button class="button button-primary" type="submit" id="domain-submit">Verifica</button>
+      </form>
+      <p class="domain-hint">Puoi scrivere anche l'estensione (es. <code>lamiaazienda.it</code>): la controlliamo per prima.</p>
+      <p class="domain-status" id="domain-status" role="status" aria-live="polite"></p>
+      <ul class="domain-results" id="domain-results" hidden></ul>
     </section>
 
     <section id="pacchetti" class="section" aria-label="Pacchetti e prezzi">
@@ -384,5 +472,77 @@
       <a href="/">&larr; Torna al sito CRO Labs</a>
     </footer>
   </main>
+
+  <script>
+    (function () {
+      const form = document.getElementById("domain-form");
+      const input = document.getElementById("domain-input");
+      const submit = document.getElementById("domain-submit");
+      const statusEl = document.getElementById("domain-status");
+      const list = document.getElementById("domain-results");
+      if (!form) return;
+
+      const mailtoFor = (domain) =>
+        "mailto:info@cro-labs.it?subject=" +
+        encodeURIComponent("STAI SENZA PENSIER' - dominio " + domain) +
+        "&body=" +
+        encodeURIComponent("Vorrei attivare il pacchetto STAI SENZA PENSIER' per il dominio " + domain + ".");
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const value = input.value.trim();
+        if (!value) return;
+        submit.disabled = true;
+        statusEl.className = "domain-status";
+        statusEl.textContent = "Controllo in corso...";
+        list.hidden = true;
+        list.replaceChildren();
+        try {
+          const response = await fetch("/api/domains/check", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ domain: value })
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Verifica non riuscita.");
+          if (!result.results || !result.results.length) {
+            statusEl.textContent = "Nessun risultato per questo nome. Prova con un altro.";
+            return;
+          }
+          statusEl.textContent = "Risultati per «" + result.label + "»:";
+          result.results.forEach((item) => {
+            const li = document.createElement("li");
+            const name = document.createElement("span");
+            name.className = "domain-name";
+            name.textContent = item.domain;
+            const badge = document.createElement("span");
+            badge.className = "domain-badge " + (item.available ? "is-free" : "is-taken");
+            badge.textContent = item.available ? "Libero" : "Occupato";
+            li.append(name, badge);
+            if (item.available) {
+              const cta = document.createElement("a");
+              cta.className = "button button-primary";
+              cta.href = mailtoFor(item.domain);
+              cta.textContent = "Attivalo con noi";
+              li.append(cta);
+            }
+            if (item.restriction) {
+              const note = document.createElement("span");
+              note.className = "domain-restriction";
+              note.textContent = "Nota: " + item.restriction;
+              li.append(note);
+            }
+            list.append(li);
+          });
+          list.hidden = false;
+        } catch (error) {
+          statusEl.className = "domain-status is-error";
+          statusEl.textContent = error.message || "Qualcosa non ha funzionato. Riprova.";
+        } finally {
+          submit.disabled = false;
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

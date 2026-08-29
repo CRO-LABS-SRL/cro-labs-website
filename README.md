@@ -35,6 +35,7 @@ Variabili d'ambiente da impostare:
 - `RESEND_API_KEY`: chiave API creata su Resend
 - `CONTACT_TO_EMAIL`: indirizzo che ricevera i messaggi del modulo contatti
 - `EMAIL_FROM`: mittente verificato, ad esempio `CRO Labs <contatti@tuodominio.it>`
+- `HOSTINGER_API`: token API Hostinger (Bearer) per la verifica disponibilita dominio nella pagina STAI SENZA PENSIER'
 
 Non inserire mai il token direttamente in `index.html` e non salvarlo nel repository.
 
@@ -63,6 +64,19 @@ Quando arriva un messaggio in Telegram, usare la funzione **Rispondi** sul messa
 la risposta verra associata alla conversazione corretta e apparira nel widget del cliente.
 
 Le credenziali `MYSQL_*` non devono mai essere aggiunte a `index.html`, inviate al browser o salvate nel repository.
+
+## Verifica disponibilita dominio (Hostinger API)
+
+La pagina `servizi/stai-senza-pensier.html` ha un modulo che interroga
+`POST /api/domains/check`; il server inoltra la richiesta all'endpoint Hostinger
+`POST https://developers.hostinger.com/api/domains/v1/availability` con
+`Authorization: Bearer $HOSTINGER_API`.
+
+- Il token va SOLO tra le variabili d'ambiente del server, mai in `index.html` o nelle pagine.
+- Il token si genera da hPanel: *API* &rarr; crea un token con permesso sui domini.
+- Limite Hostinger: 90 richieste/minuto. Il server limita anche per IP (15 verifiche ogni 10 minuti).
+- Estensioni controllate: quella eventualmente digitata dall'utente + `it`, `com`, `net`, `eu`.
+- Senza `HOSTINGER_API` l'endpoint risponde 503 e il modulo mostra "non disponibile".
 
 ## Email con Resend
 

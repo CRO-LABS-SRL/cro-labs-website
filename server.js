@@ -31,6 +31,8 @@ const databaseConfigured = Boolean(MYSQL_USER && MYSQL_PASSWORD && MYSQL_DATABAS
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL;
 const EMAIL_FROM = process.env.EMAIL_FROM || "CRO Labs <onboarding@resend.dev>";
+const HOSTINGER_API = process.env.HOSTINGER_API || process.env.HOSTINGER_API_TOKEN;
+const DOMAIN_DEFAULT_TLDS = ["it", "com", "net", "eu"];
 const indexPath = path.join(__dirname, "index.html");
 const serviziDir = path.join(__dirname, "servizi");
 const attempts = new Map();
@@ -304,6 +306,67 @@ async function handleContact(request, response) {
   }
 }
 
+function normalizeDomainLabel(raw) {
+  return String(raw || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .split("/")[0]
+    .trim();
+}
+
+async function handleDomainCheck(request, response) {
+  if (!HOSTINGER_API) {
+    return sendJson(response, 503, { error: "Verifica dominio momentaneamente non disponibile." });
+  }
+  if (isRateLimited(`domain-check:${requestIp(request)}`, 15)) {
+    return sendJson(response, 429, { error: "Troppe verifiche. Riprova tra qualche minuto." });
+  }
+  const body = await readJsonBody(request, response);
+  if (!body) return;
+  const input = normalizeDomainLabel(body.domain);
+  const [label, typedTld] = input.split(".");
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label || "")) {
+    return sendJson(response, 400, { error: "Inserisci un nome dominio valido (lettere, numeri e trattini)." });
+  }
+  const tlds = [];
+  for (const tld of [typedTld, ...DOMAIN_DEFAULT_TLDS]) {
+    if (tld && /^[a-z]{2,20}$/.test(tld) && !tlds.includes(tld)) tlds.push(tld);
+  }
+  try {
+    const hostingerResponse = await fetch("https://developers.hostinger.com/api/domains/v1/availability", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${HOSTINGER_API}`,
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({ domain: label, tlds: tlds.slice(0, 5), with_alternatives: false })
+    });
+    if (!hostingerResponse.ok) {
+      throw new Error(`Hostinger ${hostingerResponse.status}: ${await hostingerResponse.text()}`);
+    }
+    const payload = await hostingerResponse.json();
+    const rows = Array.isArray(payload) ? payload : (payload.data || []);
+    const results = rows
+      .map((item, index) => {
+        const domain = String(item.domain || `${label}.${tlds[index] || ""}`).toLowerCase();
+        return {
+          domain,
+          available: Boolean(item.is_available ?? item.isAvailable),
+          alternative: Boolean(item.is_alternative ?? item.isAlternative),
+          restriction: item.restriction || null
+        };
+      })
+      .filter((item) => item.domain && !item.domain.endsWith("."));
+    return sendJson(response, 200, { label, results });
+  } catch (error) {
+    console.error("Errore verifica dominio:", error.message, error.cause || "");
+    return sendJson(response, 502, { error: "Verifica non riuscita. Riprova tra poco." });
+  }
+}
+
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host || "localhost"}`);
   if (request.method === "POST" && url.pathname === "/api/chat/session") return handleStartChat(request, response);
@@ -311,6 +374,7 @@ const server = http.createServer(async (request, response) => {
   if (request.method === "GET" && url.pathname === "/api/chat/messages") return handleChatMessages(request, response, url);
   if (request.method === "POST" && url.pathname === "/api/telegram/webhook") return handleTelegramWebhook(request, response);
   if (request.method === "POST" && url.pathname === "/api/contact") return handleContact(request, response);
+  if (request.method === "POST" && url.pathname === "/api/domains/check") return handleDomainCheck(request, response);
   if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     return fs.createReadStream(indexPath).pipe(response);
@@ -341,4 +405,5 @@ server.listen(PORT, () => {
   } else {
     console.log(`Chat attiva: DB ${MYSQL_USER}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}`);
   }
+  console.log(`Verifica dominio Hostinger: ${HOSTINGER_API ? "attiva" : "DISATTIVA (manca HOSTINGER_API)"}`);
 });
