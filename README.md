@@ -84,6 +84,19 @@ JSON via HTTPS, nessun token) e restituisce registrar, date di registrazione/sca
 stato, nameserver e DNSSEC. I risultati sono in cache per 6 ore; limite per IP 20/10 minuti.
 RDAP non copre `.it` (il registro non lo espone): per quei domini il tasto mostra un avviso.
 
+### Verifica email prima dell'attivazione
+
+Il pulsante **Attivalo con noi** richiede la verifica dell'indirizzo email prima di mostrare
+il modulo con i dati aziendali:
+
+1. `POST /api/domains/activation/request-code` genera un codice numerico valido 15 minuti e lo invia tramite Resend.
+2. `POST /api/domains/activation/verify-code` controlla il codice (massimo 5 tentativi) e restituisce una chiave di attivazione.
+3. Il modulo aziendale viene sbloccato solo dopo la verifica. La chiave dovra essere validata nuovamente dal futuro endpoint di pagamento.
+
+Il codice e salvato nel database solo sotto forma di hash. Per attivare la funzione, eseguire
+la nuova `CREATE TABLE domain_activation_verifications` presente in `schema.sql` e configurare
+le variabili MySQL e `RESEND_API_KEY` gia usate dal resto del sito.
+
 ## Email con Resend
 
 Il modulo contatti usa `/api/contact`, quindi non abbandona piu il sito dopo l'invio.

@@ -25,3 +25,18 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   INDEX chat_messages_conversation_created_idx (conversation_id, created_at),
   INDEX chat_messages_telegram_id_idx (telegram_message_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS domain_activation_verifications (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  domain VARCHAR(255) NOT NULL,
+  email VARCHAR(120) NOT NULL,
+  code_salt CHAR(32) NOT NULL,
+  code_hash CHAR(64) NOT NULL,
+  attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  expires_at DATETIME NOT NULL,
+  verified_at DATETIME NULL,
+  activation_token_hash CHAR(64) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX domain_activation_email_idx (email, created_at),
+  INDEX domain_activation_expiry_idx (expires_at)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;

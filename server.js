@@ -316,6 +316,105 @@ function normalizeDomainLabel(raw) {
     .trim();
 }
 
+function isValidFullDomain(domain) {
+  return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z]{2,63})+$/.test(domain);
+}
+
+function activationCodeHash(code, salt) {
+  return crypto.scryptSync(String(code), salt, 32).toString("hex");
+}
+
+async function handleDomainActivationRequest(request, response) {
+  if (!databaseConfigured || !RESEND_API_KEY) {
+    return sendJson(response, 503, { error: "Verifica email momentaneamente non disponibile." });
+  }
+  if (isRateLimited(`domain-activation-request:${requestIp(request)}`, 5)) {
+    return sendJson(response, 429, { error: "Hai richiesto troppi codici. Riprova tra qualche minuto." });
+  }
+  const body = await readJsonBody(request, response);
+  if (!body) return;
+  const domain = normalizeDomainLabel(body.domain);
+  const email = String(body.email || "").trim().toLowerCase().slice(0, 120);
+  if (!isValidFullDomain(domain) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return sendJson(response, 400, { error: "Inserisci un dominio e un indirizzo email validi." });
+  }
+
+  const verificationId = crypto.randomUUID();
+  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+  const salt = crypto.randomBytes(16).toString("hex");
+  const codeHash = activationCodeHash(code, salt);
+  try {
+    await dbQuery(
+      "INSERT INTO domain_activation_verifications (id, domain, email, code_salt, code_hash, expires_at) VALUES (?, ?, ?, ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 15 MINUTE))",
+      [verificationId, domain, email, salt, codeHash]
+    );
+    const resendResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: EMAIL_FROM,
+        to: [email],
+        subject: `Codice di verifica CRO Labs per ${domain}`,
+        text: `Il tuo codice di verifica CRO Labs è ${code}. Scade tra 15 minuti. Usalo per continuare l'attivazione del dominio ${domain}.`,
+        html: `<h2>Verifica il tuo indirizzo email</h2><p>Usa questo codice per continuare l'attivazione del dominio <strong>${escapeHtml(domain)}</strong>:</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p><p>Il codice scade tra 15 minuti. Se non hai richiesto tu l'attivazione, ignora questa email.</p>`
+      })
+    });
+    if (!resendResponse.ok) throw new Error(`Resend ${resendResponse.status}: ${await resendResponse.text()}`);
+    return sendJson(response, 201, { ok: true, verificationId, expiresInSeconds: 900 });
+  } catch (error) {
+    console.error("Errore invio codice attivazione dominio:", error.message, error.cause || "");
+    return sendJson(response, 502, { error: "Non siamo riusciti a inviare il codice. Riprova." });
+  }
+}
+
+async function handleDomainActivationVerify(request, response) {
+  if (!databaseConfigured) {
+    return sendJson(response, 503, { error: "Verifica email momentaneamente non disponibile." });
+  }
+  if (isRateLimited(`domain-activation-verify:${requestIp(request)}`, 12)) {
+    return sendJson(response, 429, { error: "Troppi tentativi. Riprova tra qualche minuto." });
+  }
+  const body = await readJsonBody(request, response);
+  if (!body) return;
+  const verificationId = String(body.verificationId || "").trim();
+  const code = String(body.code || "").trim();
+  if (!/^[0-9]{6}$/.test(code) || !/^[0-9a-f-]{36}$/i.test(verificationId)) {
+    return sendJson(response, 400, { error: "Inserisci il codice a 6 cifre ricevuto via email." });
+  }
+  try {
+    const rows = await dbQuery(
+      "SELECT id, domain, email, code_salt, code_hash, attempts, expires_at, verified_at FROM domain_activation_verifications WHERE id = ? LIMIT 1",
+      [verificationId]
+    );
+    const verification = rows[0];
+    if (!verification || verification.verified_at || new Date(verification.expires_at).getTime() <= Date.now()) {
+      return sendJson(response, 410, { error: "Codice scaduto. Richiedine uno nuovo." });
+    }
+    if (Number(verification.attempts) >= 5) {
+      return sendJson(response, 429, { error: "Troppi tentativi errati. Richiedi un nuovo codice." });
+    }
+    const expectedHash = activationCodeHash(code, verification.code_salt);
+    if (!safeEqual(expectedHash, verification.code_hash)) {
+      await dbQuery("UPDATE domain_activation_verifications SET attempts = attempts + 1 WHERE id = ?", [verificationId]);
+      return sendJson(response, 400, { error: "Codice non corretto." });
+    }
+    const activationToken = crypto.randomBytes(32).toString("hex");
+    await dbQuery(
+      "UPDATE domain_activation_verifications SET verified_at = UTC_TIMESTAMP(), activation_token_hash = ? WHERE id = ?",
+      [hashToken(activationToken), verificationId]
+    );
+    return sendJson(response, 200, {
+      ok: true,
+      domain: verification.domain,
+      email: verification.email,
+      activationToken
+    });
+  } catch (error) {
+    console.error("Errore verifica codice attivazione dominio:", error.message, error.cause || "");
+    return sendJson(response, 502, { error: "Verifica non riuscita. Riprova." });
+  }
+}
+
 async function handleDomainCheck(request, response) {
   if (!HOSTINGER_API) {
     return sendJson(response, 503, { error: "Verifica dominio momentaneamente non disponibile." });
@@ -448,6 +547,8 @@ const server = http.createServer(async (request, response) => {
   if (request.method === "POST" && url.pathname === "/api/contact") return handleContact(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/check") return handleDomainCheck(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/whois") return handleDomainWhois(request, response);
+  if (request.method === "POST" && url.pathname === "/api/domains/activation/request-code") return handleDomainActivationRequest(request, response);
+  if (request.method === "POST" && url.pathname === "/api/domains/activation/verify-code") return handleDomainActivationVerify(request, response);
   if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     return fs.createReadStream(indexPath).pipe(response);
