@@ -7,26 +7,31 @@ Sito aziendale con widget chat collegato a Telegram.
 Richiede Node.js 18 o superiore.
 
 ```bash
+npm install
+MYSQL_USER="utente" MYSQL_PASSWORD="password" MYSQL_DATABASE="nome_db" \
 TELEGRAM_BOT_TOKEN="token-del-bot" TELEGRAM_CHAT_ID="id-della-chat" npm start
 ```
 
 Il sito sara disponibile su `http://localhost:3000`.
 
-## Configurazione su Render
+## Configurazione su Hostinger
 
-Creare (o aggiornare) un **Web Service** con:
+L'app Node e il database MySQL/MariaDB girano sullo stesso host.
 
-- Build Command: lasciare vuoto oppure `npm install`
+- Build Command: `npm install`
 - Start Command: `npm start`
-- Health Check Path: `/health`
+- Health Check Path: `/health` (restituisce `"database": true` solo se la connessione al DB funziona davvero)
 
-In **Environment**, aggiungere queste variabili segrete:
+Variabili d'ambiente da impostare:
 
+- `MYSQL_HOST`: di norma `localhost` (valore predefinito)
+- `MYSQL_PORT`: di norma `3306` (valore predefinito)
+- `MYSQL_USER`: utente del database creato in hPanel
+- `MYSQL_PASSWORD`: password di quell'utente
+- `MYSQL_DATABASE`: nome del database
 - `TELEGRAM_BOT_TOKEN`: token ricevuto da BotFather
 - `TELEGRAM_CHAT_ID`: ID della chat Telegram che ricevera i messaggi
 - `TELEGRAM_WEBHOOK_SECRET`: stringa casuale lunga usata per verificare le chiamate Telegram
-- `SUPABASE_URL`: URL del progetto Supabase
-- `SUPABASE_SERVICE_ROLE_KEY`: chiave service role Supabase, solo backend
 - `RESEND_API_KEY`: chiave API creata su Resend
 - `CONTACT_TO_EMAIL`: indirizzo che ricevera i messaggi del modulo contatti
 - `EMAIL_FROM`: mittente verificato, ad esempio `CRO Labs <contatti@tuodominio.it>`
@@ -43,9 +48,9 @@ Nel risultato cercare `message.chat.id`.
 
 ## Chat bidirezionale sito e Telegram
 
-1. Creare un progetto Supabase in una regione europea.
-2. Aprire **SQL Editor** ed eseguire tutto il file `supabase/schema.sql`.
-3. Copiare da Supabase l'URL progetto e la chiave `service_role` nelle variabili Hostinger.
+1. In hPanel creare un database MySQL/MariaDB e un utente con tutti i privilegi su quel database.
+2. Importare il file `schema.sql` (da phpMyAdmin oppure `mysql -u UTENTE -p NOME_DB < schema.sql`).
+3. Impostare `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE` (e se serve `MYSQL_HOST` / `MYSQL_PORT`) tra le variabili dell'app Node.
 4. Generare `TELEGRAM_WEBHOOK_SECRET` con una stringa casuale di almeno 32 caratteri.
 5. Dopo che il sito Node e online, registrare il webhook Telegram:
 
@@ -57,7 +62,7 @@ Il parametro `secret_token` deve essere identico alla variabile configurata su H
 Quando arriva un messaggio in Telegram, usare la funzione **Rispondi** sul messaggio del bot:
 la risposta verra associata alla conversazione corretta e apparira nel widget del cliente.
 
-La `SUPABASE_SERVICE_ROLE_KEY` non deve mai essere aggiunta a `index.html`, inviata al browser o salvata nel repository.
+Le credenziali `MYSQL_*` non devono mai essere aggiunte a `index.html`, inviate al browser o salvate nel repository.
 
 ## Email con Resend
 

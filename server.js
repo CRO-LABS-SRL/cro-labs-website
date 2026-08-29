@@ -2,13 +2,18 @@ const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const mysql = require("mysql2/promise");
 
 const PORT = Number(process.env.PORT) || 3000;
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
-const SUPABASE_URL = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const MYSQL_HOST = process.env.MYSQL_HOST || "localhost";
+const MYSQL_PORT = Number(process.env.MYSQL_PORT) || 3306;
+const MYSQL_USER = process.env.MYSQL_USER;
+const MYSQL_PASSWORD = process.env.MYSQL_PASSWORD;
+const MYSQL_DATABASE = process.env.MYSQL_DATABASE;
+const databaseConfigured = Boolean(MYSQL_USER && MYSQL_PASSWORD && MYSQL_DATABASE);
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL;
 const EMAIL_FROM = process.env.EMAIL_FROM || "CRO Labs <onboarding@resend.dev>";
@@ -87,33 +92,38 @@ async function readJsonBody(request, response) {
   }
 }
 
-async function supabaseRequest(table, { method = "GET", query = "", body, prefer } = {}) {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error("Supabase non configurato");
-  const result = await fetch(`${SUPABASE_URL}/rest/v1/${table}${query ? `?${query}` : ""}`, {
-    method,
-    headers: {
-      "apikey": SUPABASE_SERVICE_ROLE_KEY,
-      "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      "Content-Type": "application/json",
-      ...(prefer ? { "Prefer": prefer } : {})
-    },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) })
-  });
-  if (!result.ok) throw new Error(`Supabase ${result.status}: ${await result.text()}`);
-  const text = await result.text();
-  return text ? JSON.parse(text) : null;
+let pool = null;
+function getPool() {
+  if (!databaseConfigured) throw new Error("Database non configurato");
+  if (!pool) {
+    pool = mysql.createPool({
+      host: MYSQL_HOST,
+      port: MYSQL_PORT,
+      user: MYSQL_USER,
+      password: MYSQL_PASSWORD,
+      database: MYSQL_DATABASE,
+      charset: "utf8mb4",
+      timezone: "Z",
+      waitForConnections: true,
+      connectionLimit: 5,
+      enableKeepAlive: true
+    });
+  }
+  return pool;
+}
+
+async function dbQuery(sql, params = []) {
+  const [rows] = await getPool().execute(sql, params);
+  return rows;
 }
 
 async function findConversation(publicId, accessToken) {
   if (!publicId || !accessToken) return null;
-  const query = new URLSearchParams({
-    select: "id,public_id,name,email,status",
-    public_id: `eq.${publicId}`,
-    access_token_hash: `eq.${hashToken(accessToken)}`,
-    limit: "1"
-  });
-  const conversations = await supabaseRequest("chat_conversations", { query: query.toString() });
-  return conversations[0] || null;
+  const rows = await dbQuery(
+    "SELECT id, public_id, name, email, status FROM chat_conversations WHERE public_id = ? AND access_token_hash = ? LIMIT 1",
+    [publicId, hashToken(accessToken)]
+  );
+  return rows[0] || null;
 }
 
 async function sendTelegramMessage(conversation, message, databaseMessageId) {
@@ -133,14 +143,14 @@ async function sendTelegramMessage(conversation, message, databaseMessageId) {
   });
   const telegramResult = await telegramResponse.json();
   if (!telegramResponse.ok || !telegramResult.ok) throw new Error(`Telegram: ${JSON.stringify(telegramResult)}`);
-  const query = new URLSearchParams({ id: `eq.${databaseMessageId}` });
-  await supabaseRequest("chat_messages", {
-    method: "PATCH", query: query.toString(), body: { telegram_message_id: telegramResult.result.message_id }
-  });
+  await dbQuery(
+    "UPDATE chat_messages SET telegram_message_id = ? WHERE id = ?",
+    [telegramResult.result.message_id, databaseMessageId]
+  );
 }
 
 async function handleStartChat(request, response) {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !BOT_TOKEN || !CHAT_ID) {
+  if (!databaseConfigured || !BOT_TOKEN || !CHAT_ID) {
     return sendJson(response, 503, { error: "Chat momentaneamente non disponibile." });
   }
   if (isRateLimited(`chat-start:${requestIp(request)}`, 5)) {
@@ -156,20 +166,22 @@ async function handleStartChat(request, response) {
     return sendJson(response, 400, { error: "Compila correttamente tutti i campi." });
   }
   const publicId = crypto.randomUUID();
+  const conversationId = crypto.randomUUID();
   const accessToken = crypto.randomBytes(32).toString("hex");
   try {
-    const [conversation] = await supabaseRequest("chat_conversations", {
-      method: "POST", prefer: "return=representation",
-      body: { public_id: publicId, access_token_hash: hashToken(accessToken), name, email }
-    });
-    const [savedMessage] = await supabaseRequest("chat_messages", {
-      method: "POST", prefer: "return=representation",
-      body: { conversation_id: conversation.id, sender: "visitor", body: message }
-    });
-    await sendTelegramMessage(conversation, message, savedMessage.id);
+    await dbQuery(
+      "INSERT INTO chat_conversations (id, public_id, access_token_hash, name, email) VALUES (?, ?, ?, ?, ?)",
+      [conversationId, publicId, hashToken(accessToken), name, email]
+    );
+    const saved = await dbQuery(
+      "INSERT INTO chat_messages (conversation_id, sender, body) VALUES (?, 'visitor', ?)",
+      [conversationId, message]
+    );
+    const conversation = { id: conversationId, public_id: publicId, name, email };
+    await sendTelegramMessage(conversation, message, saved.insertId);
     return sendJson(response, 201, { ok: true, sessionId: publicId, accessToken });
   } catch (error) {
-    console.error("Errore apertura chat:", error.message);
+    console.error("Errore apertura chat:", error.message, error.cause || "");
     return sendJson(response, 502, { error: "Non siamo riusciti ad aprire la chat. Riprova." });
   }
 }
@@ -187,14 +199,14 @@ async function handleChatMessage(request, response) {
       return sendJson(response, 401, { error: "Conversazione non valida o terminata." });
     }
     if (!message) return sendJson(response, 400, { error: "Scrivi un messaggio." });
-    const [savedMessage] = await supabaseRequest("chat_messages", {
-      method: "POST", prefer: "return=representation",
-      body: { conversation_id: conversation.id, sender: "visitor", body: message }
-    });
-    await sendTelegramMessage(conversation, message, savedMessage.id);
+    const saved = await dbQuery(
+      "INSERT INTO chat_messages (conversation_id, sender, body) VALUES (?, 'visitor', ?)",
+      [conversation.id, message]
+    );
+    await sendTelegramMessage(conversation, message, saved.insertId);
     return sendJson(response, 201, { ok: true });
   } catch (error) {
-    console.error("Errore messaggio chat:", error.message);
+    console.error("Errore messaggio chat:", error.message, error.cause || "");
     return sendJson(response, 502, { error: "Invio non riuscito. Riprova." });
   }
 }
@@ -203,15 +215,13 @@ async function handleChatMessages(request, response, url) {
   try {
     const conversation = await findConversation(url.searchParams.get("session"), request.headers["x-chat-token"]);
     if (!conversation) return sendJson(response, 401, { error: "Conversazione non valida." });
-    const query = new URLSearchParams({
-      select: "id,sender,body,created_at",
-      conversation_id: `eq.${conversation.id}`,
-      order: "created_at.asc", limit: "100"
-    });
-    const messages = await supabaseRequest("chat_messages", { query: query.toString() });
+    const messages = await dbQuery(
+      "SELECT id, sender, body, created_at FROM chat_messages WHERE conversation_id = ? ORDER BY created_at ASC, id ASC LIMIT 100",
+      [conversation.id]
+    );
     return sendJson(response, 200, { messages });
   } catch (error) {
-    console.error("Errore lettura chat:", error.message);
+    console.error("Errore lettura chat:", error.message, error.cause || "");
     return sendJson(response, 502, { error: "Impossibile aggiornare la conversazione." });
   }
 }
@@ -229,17 +239,19 @@ async function handleTelegramWebhook(request, response) {
     return sendJson(response, 200, { ok: true });
   }
   try {
-    const lookup = new URLSearchParams({
-      select: "conversation_id", telegram_message_id: `eq.${replyToId}`, limit: "1"
-    });
-    const [sourceMessage] = await supabaseRequest("chat_messages", { query: lookup.toString() });
+    const rows = await dbQuery(
+      "SELECT conversation_id FROM chat_messages WHERE telegram_message_id = ? LIMIT 1",
+      [replyToId]
+    );
+    const sourceMessage = rows[0];
     if (!sourceMessage) return sendJson(response, 200, { ok: true });
-    await supabaseRequest("chat_messages", {
-      method: "POST", body: { conversation_id: sourceMessage.conversation_id, sender: "operator", body: replyText }
-    });
+    await dbQuery(
+      "INSERT INTO chat_messages (conversation_id, sender, body) VALUES (?, 'operator', ?)",
+      [sourceMessage.conversation_id, replyText]
+    );
     return sendJson(response, 200, { ok: true });
   } catch (error) {
-    console.error("Errore webhook Telegram:", error.message);
+    console.error("Errore webhook Telegram:", error.message, error.cause || "");
     return sendJson(response, 500, { error: "Errore interno." });
   }
 }
@@ -293,7 +305,16 @@ const server = http.createServer(async (request, response) => {
     return serveServiziPage(response, url.pathname);
   }
   if (request.method === "GET" && url.pathname === "/health") {
-    return sendJson(response, 200, { status: "ok", database: Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) });
+    let database = false;
+    if (databaseConfigured) {
+      try {
+        await dbQuery("SELECT 1");
+        database = true;
+      } catch (error) {
+        console.error("Health check database:", error.message, error.cause || "");
+      }
+    }
+    return sendJson(response, 200, { status: "ok", database });
   }
   return sendJson(response, 404, { error: "Pagina non trovata." });
 });
