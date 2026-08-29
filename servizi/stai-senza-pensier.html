@@ -307,6 +307,25 @@
     .domain-results li .button { margin-left: auto; padding: 0.6rem 1rem; font-size: 0.85rem; }
     .domain-restriction { flex-basis: 100%; color: var(--muted); font-size: 0.78rem; }
     @media (max-width: 520px) { .domain-results li .button { margin-left: 0; } }
+    .domain-whois {
+      flex-basis: 100%;
+      margin-top: 0.6rem;
+      padding: 0.85rem 1rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.25);
+      font-size: 0.85rem;
+    }
+    .domain-whois dl {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 0.3rem 0.9rem;
+      margin: 0;
+    }
+    .domain-whois dt { color: var(--muted); font-weight: 700; }
+    .domain-whois dd { margin: 0; word-break: break-word; }
+    .domain-whois-msg { color: var(--muted); margin: 0; }
+    @media (max-width: 520px) { .domain-whois dl { grid-template-columns: 1fr; gap: 0.15rem; } .domain-whois dt { margin-top: 0.4rem; } }
   </style>
 </head>
 <body>
@@ -488,6 +507,85 @@
         "&body=" +
         encodeURIComponent("Vorrei attivare il pacchetto STAI SENZA PENSIER' per il dominio " + domain + ".");
 
+      const fmtDate = (iso) => {
+        if (!iso) return null;
+        const date = new Date(iso);
+        return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString("it-IT");
+      };
+
+      function renderWhois(container, data, domain) {
+        const msg = (text) => {
+          const p = document.createElement("p");
+          p.className = "domain-whois-msg";
+          p.textContent = text;
+          return p;
+        };
+        container.replaceChildren();
+        if (!data || data.ok === false) {
+          container.append(msg(
+            domain && domain.endsWith(".it")
+              ? "Il registro .it non fornisce dati WHOIS pubblici tramite RDAP."
+              : "Dati WHOIS non disponibili per questo dominio."
+          ));
+          return;
+        }
+        const dl = document.createElement("dl");
+        const row = (label, value) => {
+          if (!value || (Array.isArray(value) && !value.length)) return;
+          const dt = document.createElement("dt");
+          dt.textContent = label;
+          const dd = document.createElement("dd");
+          dd.textContent = Array.isArray(value) ? value.join(", ") : value;
+          dl.append(dt, dd);
+        };
+        row("Registrar", data.registrar);
+        row("Registrato il", fmtDate(data.created));
+        row("Scadenza", fmtDate(data.expires));
+        row("Ultimo aggiornamento", fmtDate(data.updated));
+        row("Stato", data.status);
+        row("Nameserver", data.nameservers);
+        if (data.dnssec === true || data.dnssec === false) row("DNSSEC", data.dnssec ? "attivo" : "non attivo");
+        container.append(dl.childElementCount ? dl : msg("Nessun dettaglio pubblico disponibile."));
+      }
+
+      function attachWhois(li, domain) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "button button-secondary";
+        button.textContent = "WHOIS";
+        button.setAttribute("aria-expanded", "false");
+        const panel = document.createElement("div");
+        panel.className = "domain-whois";
+        panel.hidden = true;
+        let loaded = false;
+        button.addEventListener("click", async () => {
+          panel.hidden = !panel.hidden;
+          button.setAttribute("aria-expanded", String(!panel.hidden));
+          if (panel.hidden || loaded) return;
+          panel.replaceChildren(Object.assign(document.createElement("p"), {
+            className: "domain-whois-msg",
+            textContent: "Carico i dati WHOIS..."
+          }));
+          try {
+            const res = await fetch("/api/domains/whois", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ domain })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "WHOIS non disponibile.");
+            renderWhois(panel, data, domain);
+            loaded = true;
+          } catch (error) {
+            panel.replaceChildren(Object.assign(document.createElement("p"), {
+              className: "domain-whois-msg",
+              textContent: error.message || "WHOIS non disponibile."
+            }));
+          }
+        });
+        li.append(button, panel);
+      }
+
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         const value = input.value.trim();
@@ -525,6 +623,8 @@
               cta.href = mailtoFor(item.domain);
               cta.textContent = "Attivalo con noi";
               li.append(cta);
+            } else {
+              attachWhois(li, item.domain);
             }
             if (item.restriction) {
               const note = document.createElement("span");

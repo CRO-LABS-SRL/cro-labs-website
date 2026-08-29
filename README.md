@@ -78,6 +78,12 @@ La pagina `servizi/stai-senza-pensier.html` ha un modulo che interroga
 - Estensioni controllate: quella eventualmente digitata dall'utente + `it`, `com`, `net`, `eu`.
 - Senza `HOSTINGER_API` l'endpoint risponde 503 e il modulo mostra "non disponibile".
 
+Accanto a ogni dominio risultato "occupato" c'e un tasto **WHOIS** che chiama
+`POST /api/domains/whois`; il server interroga RDAP (`https://rdap.org/domain/<dominio>`,
+JSON via HTTPS, nessun token) e restituisce registrar, date di registrazione/scadenza,
+stato, nameserver e DNSSEC. I risultati sono in cache per 6 ore; limite per IP 20/10 minuti.
+RDAP non copre `.it` (il registro non lo espone): per quei domini il tasto mostra un avviso.
+
 ## Email con Resend
 
 Il modulo contatti usa `/api/contact`, quindi non abbandona piu il sito dopo l'invio.

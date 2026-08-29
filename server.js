@@ -367,6 +367,78 @@ async function handleDomainCheck(request, response) {
   }
 }
 
+const whoisCache = new Map();
+const WHOIS_TTL_MS = 6 * 60 * 60 * 1000;
+
+function rdapEntityName(entity) {
+  const card = entity && Array.isArray(entity.vcardArray) ? entity.vcardArray[1] : null;
+  if (Array.isArray(card)) {
+    const fn = card.find((field) => Array.isArray(field) && field[0] === "fn");
+    if (fn && fn[3]) return String(fn[3]);
+  }
+  return entity && entity.handle ? String(entity.handle) : null;
+}
+
+function parseRdapDomain(json, fallbackDomain) {
+  const events = Array.isArray(json.events) ? json.events : [];
+  const eventDate = (action) => {
+    const hit = events.find((event) => event.eventAction === action);
+    return hit ? hit.eventDate : null;
+  };
+  const entities = Array.isArray(json.entities) ? json.entities : [];
+  const registrar = entities
+    .filter((entity) => Array.isArray(entity.roles) && entity.roles.includes("registrar"))
+    .map(rdapEntityName)
+    .find(Boolean) || null;
+  return {
+    ok: true,
+    domain: (json.ldhName ? String(json.ldhName) : fallbackDomain).toLowerCase(),
+    registrar,
+    created: eventDate("registration"),
+    updated: eventDate("last changed"),
+    expires: eventDate("expiration"),
+    status: Array.isArray(json.status) ? json.status : [],
+    nameservers: Array.isArray(json.nameservers)
+      ? json.nameservers.map((ns) => String(ns.ldhName || "").toLowerCase()).filter(Boolean)
+      : [],
+    dnssec: json.secureDNS ? Boolean(json.secureDNS.delegationSigned) : null
+  };
+}
+
+async function handleDomainWhois(request, response) {
+  if (isRateLimited(`domain-whois:${requestIp(request)}`, 20)) {
+    return sendJson(response, 429, { error: "Troppe richieste WHOIS. Riprova tra qualche minuto." });
+  }
+  const body = await readJsonBody(request, response);
+  if (!body) return;
+  const domain = normalizeDomainLabel(body.domain);
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9-]{2,63})+$/.test(domain)) {
+    return sendJson(response, 400, { error: "Dominio non valido." });
+  }
+  const cached = whoisCache.get(domain);
+  if (cached && Date.now() - cached.at < WHOIS_TTL_MS) {
+    return sendJson(response, 200, cached.data);
+  }
+  try {
+    const rdapResponse = await fetch(`https://rdap.org/domain/${encodeURIComponent(domain)}`, {
+      headers: { "Accept": "application/rdap+json", "User-Agent": "CRO-Labs-RDAP/1.0" },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (rdapResponse.status === 404) {
+      const data = { ok: false, reason: "not_available" };
+      whoisCache.set(domain, { at: Date.now(), data });
+      return sendJson(response, 200, data);
+    }
+    if (!rdapResponse.ok) throw new Error(`RDAP ${rdapResponse.status}`);
+    const data = parseRdapDomain(await rdapResponse.json(), domain);
+    whoisCache.set(domain, { at: Date.now(), data });
+    return sendJson(response, 200, data);
+  } catch (error) {
+    console.error("Errore WHOIS dominio:", error.message, error.cause || "");
+    return sendJson(response, 502, { error: "WHOIS non disponibile per questo dominio." });
+  }
+}
+
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host || "localhost"}`);
   if (request.method === "POST" && url.pathname === "/api/chat/session") return handleStartChat(request, response);
@@ -375,6 +447,7 @@ const server = http.createServer(async (request, response) => {
   if (request.method === "POST" && url.pathname === "/api/telegram/webhook") return handleTelegramWebhook(request, response);
   if (request.method === "POST" && url.pathname === "/api/contact") return handleContact(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/check") return handleDomainCheck(request, response);
+  if (request.method === "POST" && url.pathname === "/api/domains/whois") return handleDomainWhois(request, response);
   if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     return fs.createReadStream(indexPath).pipe(response);
