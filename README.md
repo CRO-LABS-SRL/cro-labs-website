@@ -79,11 +79,10 @@ La pagina `servizi/stai-senza-pensier.html` ha un modulo che interroga
 - Senza `HOSTINGER_API` l'endpoint risponde 503 e il modulo mostra "non disponibile".
 
 Per ogni dominio libero il server consulta anche il catalogo Hostinger e confronta il prezzo del
-primo anno e il prezzo ordinario di rinnovo. La configurazione predefinita usa USD, la valuta con
-cui Hostinger normalmente espone le voci del catalogo domini:
+primo anno e il prezzo ordinario di rinnovo. Tutto il flusso usa USD, dalla valutazione Hostinger
+fino al supplemento e al pagamento Revolut:
 
 ```env
-DOMAIN_PRICE_CURRENCY=USD
 DOMAIN_MAX_ANNUAL_PRICE_CENTS=3000
 DOMAIN_AUTO_EXTRA_MAX_ANNUAL_PRICE_CENTS=6000
 DOMAIN_EXTRA_MARGIN_PERCENT=30
@@ -91,13 +90,9 @@ DOMAIN_EXTRA_MARGIN_PERCENT=30
 
 Fino a 30 USD/anno il dominio e incluso. Tra 30 e 60 USD/anno il server stima il costo per la durata
 scelta (`primo anno + rinnovo * anni restanti`), sottrae la quota gia inclusa e applica un margine
-del 30%; il supplemento viene arrotondato all'euro superiore e aggiunto al totale Revolut. Oltre
+del 30%; il supplemento viene arrotondato al dollaro superiore e aggiunto al totale Revolut. Oltre
 60 USD/anno, per domini premium/restricted o prezzi non verificabili viene proposto un preventivo.
-Se la valuta preferita non e presente nel catalogo, il server cerca automaticamente la voce USD
-anziche trattare il prezzo come mancante. Per calcolare eventuali supplementi in euro, configurare
-anche un tasso prudenziale, ad esempio `DOMAIN_PRICE_TO_EUR_RATE=0.95`; senza questo valore soltanto
-i domini che richiedono un extra passano a preventivo manuale. I domini sotto la soglia restano
-attivabili anche senza conversione.
+Non viene eseguita alcuna conversione valutaria.
 
 Il controllo viene ripetuto sul server subito prima della creazione del checkout Revolut, quindi
 prezzi e supplementi non possono essere modificati dal browser. Il totale visualizzato viene inoltre
@@ -152,8 +147,8 @@ Dopo la verifica email, `POST /api/domains/checkout` valida nuovamente la chiave
 salva i dati in `domain_service_orders`, crea un ordine Revolut e restituisce al browser solo
 il relativo `checkout_url`. Gli importi sono determinati esclusivamente dal server:
 
-- pacchetto 5 anni: `36000` centesimi;
-- pacchetto 10 anni: `69000` centesimi.
+- pacchetto 5 anni: `36000` centesimi USD (360 USD);
+- pacchetto 10 anni: `69000` centesimi USD (690 USD).
 
 Configurazione server:
 
@@ -167,6 +162,9 @@ PUBLIC_BASE_URL=https://cro-labs.it
 insieme alla relativa chiave Production. `PUBLIC_BASE_URL` permette a Revolut di riportare il
 cliente sulla pagina dopo il checkout. Eseguire anche la `CREATE TABLE domain_service_orders`
 presente in `schema.sql`.
+Se la tabella era gia stata creata, rieseguire anche l'ultima istruzione `ALTER TABLE` di
+`schema.sql` per impostare USD come valuta predefinita dei nuovi ordini. Gli ordini storici restano
+registrati con la loro valuta originale.
 
 Il ritorno del browser non costituisce prova del pagamento: lo stato definitivo viene gestito
 dal webhook Revolut prima di acquistare il dominio tramite Hostinger.

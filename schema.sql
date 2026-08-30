@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS domain_service_orders (
   domain VARCHAR(255) NOT NULL,
   plan_years TINYINT UNSIGNED NOT NULL,
   amount_cents INT UNSIGNED NOT NULL,
-  currency CHAR(3) NOT NULL DEFAULT 'EUR',
+  currency CHAR(3) NOT NULL DEFAULT 'USD',
   company_name VARCHAR(160) NOT NULL,
   vat_number VARCHAR(32) NOT NULL,
   fiscal_code VARCHAR(32) NULL,
@@ -70,3 +70,6 @@ CREATE TABLE IF NOT EXISTS domain_service_orders (
   INDEX domain_service_orders_status_idx (status, created_at),
   INDEX domain_service_orders_domain_idx (domain)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Aggiorna il valore predefinito anche se la tabella esisteva gia; gli ordini storici non cambiano valuta.
+ALTER TABLE domain_service_orders MODIFY currency CHAR(3) NOT NULL DEFAULT 'USD';

@@ -32,8 +32,8 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL;
 const EMAIL_FROM = process.env.EMAIL_FROM || "CRO Labs <onboarding@resend.dev>";
 const HOSTINGER_API = process.env.HOSTINGER_API || process.env.HOSTINGER_API_TOKEN;
-const configuredDomainCurrency = String(process.env.DOMAIN_PRICE_CURRENCY || "USD").toUpperCase();
-const DOMAIN_PRICE_CURRENCY = /^[A-Z]{3}$/.test(configuredDomainCurrency) ? configuredDomainCurrency : "USD";
+const DOMAIN_PRICE_CURRENCY = "USD";
+const DOMAIN_CHECKOUT_CURRENCY = "USD";
 const configuredDomainPriceLimit = Number(process.env.DOMAIN_MAX_ANNUAL_PRICE_CENTS);
 const DOMAIN_MAX_ANNUAL_PRICE_CENTS = Number.isSafeInteger(configuredDomainPriceLimit) && configuredDomainPriceLimit > 0
   ? configuredDomainPriceLimit
@@ -48,10 +48,6 @@ const DOMAIN_EXTRA_MARGIN_PERCENT = Number.isFinite(configuredDomainExtraMargin)
   configuredDomainExtraMargin >= 0 && configuredDomainExtraMargin <= 100
   ? configuredDomainExtraMargin
   : 30;
-const configuredDomainToEurRate = Number(process.env.DOMAIN_PRICE_TO_EUR_RATE);
-const DOMAIN_PRICE_TO_EUR_RATE = Number.isFinite(configuredDomainToEurRate) && configuredDomainToEurRate > 0
-  ? configuredDomainToEurRate
-  : null;
 const REVOLUT_SECRET_KEY = process.env.REVOLUT_SECRET_KEY;
 const REVOLUT_WEBHOOK_SECRET = process.env.REVOLUT_WEBHOOK_SECRET;
 const REVOLUT_ENV = String(process.env.REVOLUT_ENV || "sandbox").toLowerCase();
@@ -417,22 +413,17 @@ function annualDomainPriceForTld(items, tld) {
     return Number.isFinite(Number(price.price)) &&
       Number(price.period) === 1 && (unit.startsWith("year") || id.endsWith("-1y"));
   });
-  const preferredCurrencyPrices = oneYearPrices.filter(
-    (price) => String(price.currency || "").toUpperCase() === DOMAIN_PRICE_CURRENCY
-  );
   const usdPrices = oneYearPrices.filter(
     (price) => String(price.currency || "").toUpperCase() === "USD"
   );
-  // Alcuni account Hostinger espongono il catalogo domini solo in USD. Se la valuta
-  // preferita non esiste, usare USD evita di classificare il dominio come "senza prezzo".
-  const annualPrices = preferredCurrencyPrices.length ? preferredCurrencyPrices : usdPrices;
+  const annualPrices = usdPrices;
   if (!annualPrices.length) return null;
   annualPrices.sort((a, b) => Number(a.price) - Number(b.price));
   const selected = annualPrices[0];
   return {
     itemId: selected.id,
     catalogItemId: selected.catalogItemId,
-    currency: String(selected.currency || "USD").toUpperCase(),
+    currency: DOMAIN_PRICE_CURRENCY,
     firstYearPriceCents: Number(selected.first_period_price ?? selected.price),
     renewalPriceCents: Number(selected.price),
     maxAnnualPriceCents: DOMAIN_MAX_ANNUAL_PRICE_CENTS
@@ -449,11 +440,9 @@ function domainExtraCatalogCents(quote, planYears) {
 
 function domainSupplementForPlan(quote, planYears) {
   const differenceCatalogCents = domainExtraCatalogCents(quote, planYears);
-  const conversionRate = quote?.currency === "EUR" ? 1 : DOMAIN_PRICE_TO_EUR_RATE;
-  if (differenceCatalogCents === null || (differenceCatalogCents > 0 && !conversionRate)) return null;
+  if (differenceCatalogCents === null) return null;
   if (differenceCatalogCents === 0) return 0;
-  const differenceEurCents = differenceCatalogCents * conversionRate;
-  const withMargin = differenceEurCents * (1 + DOMAIN_EXTRA_MARGIN_PERCENT / 100);
+  const withMargin = differenceCatalogCents * (1 + DOMAIN_EXTRA_MARGIN_PERCENT / 100);
   return Math.ceil(withMargin / 100) * 100;
 }
 
@@ -461,8 +450,6 @@ function evaluateDomainEligibility(isAvailable, restriction, quote) {
   let reason = null;
   const extra5CatalogCents = quote ? domainExtraCatalogCents(quote, 5) : null;
   const extra10CatalogCents = quote ? domainExtraCatalogCents(quote, 10) : null;
-  const needsCurrencyConversion = extra5CatalogCents > 0 || extra10CatalogCents > 0;
-  const conversionRate = quote?.currency === "EUR" ? 1 : DOMAIN_PRICE_TO_EUR_RATE;
   if (!isAvailable) reason = "Dominio non disponibile.";
   else if (hasDomainRestriction(restriction)) reason = "Dominio premium o soggetto a restrizioni: richiedi un preventivo personalizzato.";
   else if (!quote) reason = "Questa estensione richiede una verifica manuale e non è acquistabile online.";
@@ -470,9 +457,6 @@ function evaluateDomainEligibility(isAvailable, restriction, quote) {
     quote.firstYearPriceCents > DOMAIN_AUTO_EXTRA_MAX_ANNUAL_PRICE_CENTS ||
     quote.renewalPriceCents > DOMAIN_AUTO_EXTRA_MAX_ANNUAL_PRICE_CENTS
   ) reason = "Dominio ad alto costo: richiedi un preventivo personalizzato.";
-  else if (needsCurrencyConversion && !conversionRate) {
-    reason = `Conversione ${quote.currency}/EUR non configurata: richiedi un preventivo personalizzato.`;
-  }
   const supplements = !reason && quote ? {
     5: domainSupplementForPlan(quote, 5),
     10: domainSupplementForPlan(quote, 10)
@@ -808,13 +792,14 @@ async function handleDomainCheckout(request, response) {
     }
 
     const existingRows = await dbQuery(
-      "SELECT id, status, checkout_url, plan_years, amount_cents FROM domain_service_orders WHERE verification_id = ? LIMIT 1",
+      "SELECT id, status, checkout_url, plan_years, amount_cents, currency FROM domain_service_orders WHERE verification_id = ? LIMIT 1",
       [verificationId]
     );
     const existing = existingRows[0];
     if (
       existing?.status === "pending" && existing.checkout_url &&
-      Number(existing.plan_years) === planYears && Number(existing.amount_cents) === amountCents
+      Number(existing.plan_years) === planYears && Number(existing.amount_cents) === amountCents &&
+      String(existing.currency).toUpperCase() === DOMAIN_CHECKOUT_CURRENCY
     ) {
       return sendJson(response, 200, { ok: true, orderId: existing.id, checkoutUrl: existing.checkout_url });
     }
@@ -833,19 +818,19 @@ async function handleDomainCheckout(request, response) {
     ];
     if (existing) {
       await dbQuery(
-        "UPDATE domain_service_orders SET status = 'draft', domain = ?, plan_years = ?, amount_cents = ?, company_name = ?, vat_number = ?, fiscal_code = ?, contact_first_name = ?, contact_last_name = ?, email = ?, phone = ?, address = ?, city = ?, province = ?, postal_code = ?, country = ?, checkout_url = NULL, revolut_order_id = NULL WHERE id = ?",
-        [...values, orderId]
+        "UPDATE domain_service_orders SET status = 'draft', domain = ?, plan_years = ?, amount_cents = ?, currency = ?, company_name = ?, vat_number = ?, fiscal_code = ?, contact_first_name = ?, contact_last_name = ?, email = ?, phone = ?, address = ?, city = ?, province = ?, postal_code = ?, country = ?, checkout_url = NULL, revolut_order_id = NULL WHERE id = ?",
+        [domain, planYears, amountCents, DOMAIN_CHECKOUT_CURRENCY, ...values.slice(3), orderId]
       );
     } else {
       await dbQuery(
-        "INSERT INTO domain_service_orders (id, verification_id, domain, plan_years, amount_cents, company_name, vat_number, fiscal_code, contact_first_name, contact_last_name, email, phone, address, city, province, postal_code, country) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [orderId, verificationId, ...values]
+        "INSERT INTO domain_service_orders (id, verification_id, domain, plan_years, amount_cents, currency, company_name, vat_number, fiscal_code, contact_first_name, contact_last_name, email, phone, address, city, province, postal_code, country) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [orderId, verificationId, domain, planYears, amountCents, DOMAIN_CHECKOUT_CURRENCY, ...values.slice(3)]
       );
     }
 
     const revolutPayload = {
       amount: amountCents,
-      currency: "EUR",
+      currency: DOMAIN_CHECKOUT_CURRENCY,
       description: `STAI SENZA PENSIER' ${planYears} anni - ${domain}`,
       capture_mode: "automatic",
       metadata: {
