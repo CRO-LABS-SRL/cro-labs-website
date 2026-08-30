@@ -33,7 +33,7 @@ const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL;
 const EMAIL_FROM = process.env.EMAIL_FROM || "CRO Labs <onboarding@resend.dev>";
 const HOSTINGER_API = process.env.HOSTINGER_API || process.env.HOSTINGER_API_TOKEN;
 const DOMAIN_PRICE_CURRENCY = "USD";
-const DOMAIN_CHECKOUT_CURRENCY = "USD";
+const DOMAIN_CHECKOUT_CURRENCY = "EUR";
 const configuredDomainPriceLimit = Number(process.env.DOMAIN_MAX_ANNUAL_PRICE_CENTS);
 const DOMAIN_MAX_ANNUAL_PRICE_CENTS = Number.isSafeInteger(configuredDomainPriceLimit) && configuredDomainPriceLimit > 0
   ? configuredDomainPriceLimit
@@ -48,6 +48,10 @@ const DOMAIN_EXTRA_MARGIN_PERCENT = Number.isFinite(configuredDomainExtraMargin)
   configuredDomainExtraMargin >= 0 && configuredDomainExtraMargin <= 100
   ? configuredDomainExtraMargin
   : 30;
+const configuredUsdToEurRate = Number(process.env.DOMAIN_USD_TO_EUR_RATE);
+const DOMAIN_USD_TO_EUR_RATE = Number.isFinite(configuredUsdToEurRate) && configuredUsdToEurRate > 0
+  ? configuredUsdToEurRate
+  : 1;
 const REVOLUT_SECRET_KEY = process.env.REVOLUT_SECRET_KEY;
 const REVOLUT_WEBHOOK_SECRET = process.env.REVOLUT_WEBHOOK_SECRET;
 const REVOLUT_ENV = String(process.env.REVOLUT_ENV || "sandbox").toLowerCase();
@@ -448,7 +452,8 @@ function domainSupplementForPlan(quote, planYears) {
   const differenceCatalogCents = domainExtraCatalogCents(quote, planYears);
   if (differenceCatalogCents === null) return null;
   if (differenceCatalogCents === 0) return 0;
-  const withMargin = differenceCatalogCents * (1 + DOMAIN_EXTRA_MARGIN_PERCENT / 100);
+  const differenceEurCents = differenceCatalogCents * DOMAIN_USD_TO_EUR_RATE;
+  const withMargin = differenceEurCents * (1 + DOMAIN_EXTRA_MARGIN_PERCENT / 100);
   return Math.ceil(withMargin / 100) * 100;
 }
 

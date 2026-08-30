@@ -570,11 +570,11 @@
             <div class="plan-options">
               <label class="plan-option">
                 <input type="radio" name="plan" value="5" required>
-                <span><strong id="plan-5-title">5 anni · $ 360</strong><small id="plan-5-note">Un unico pagamento, IVA inclusa</small></span>
+                <span><strong id="plan-5-title">5 anni · € 360</strong><small id="plan-5-note">Un unico pagamento, IVA inclusa</small></span>
               </label>
               <label class="plan-option">
                 <input type="radio" name="plan" value="10" required>
-                <span><strong id="plan-10-title">10 anni · $ 690</strong><small id="plan-10-note">Un unico pagamento, IVA inclusa</small></span>
+                <span><strong id="plan-10-title">10 anni · € 690</strong><small id="plan-10-note">Un unico pagamento, IVA inclusa</small></span>
               </label>
             </div>
           </fieldset>
@@ -647,7 +647,7 @@
         <article class="price-card">
           <span class="plan-tag">STAI SENZA PENSIER' 5</span>
           <h3>5 anni</h3>
-          <p class="price">$ 360<span>una tantum</span></p>
+          <p class="price">€ 360<span>una tantum</span></p>
           <p class="plan-for">Ideale per chi vuole coprire il medio periodo senza pensieri</p>
           <ul>
             <li>1 dominio con registrazione o trasferimento incluso</li>
@@ -664,7 +664,7 @@
         <article class="price-card is-highlight">
           <span class="plan-tag">STAI SENZA PENSIER' 10</span>
           <h3>10 anni</h3>
-          <p class="price">$ 690<span>una tantum</span></p>
+          <p class="price">€ 690<span>una tantum</span></p>
           <p class="plan-for">Ideale per chi vuole dimenticarsene per un decennio</p>
           <ul>
             <li>1 dominio con registrazione o trasferimento incluso</li>
@@ -807,17 +807,17 @@
       let quoteSession = null;
       let quotePollTimer = null;
 
-      const formatUsd = (cents) => new Intl.NumberFormat("it-IT", {
+      const formatEur = (cents) => new Intl.NumberFormat("it-IT", {
         style: "currency",
-        currency: "USD",
+        currency: "EUR",
         maximumFractionDigits: 0
       }).format(Number(cents) / 100);
 
       function setPlanPrice(years, baseCents, supplementCents, title, note) {
         const extra = Number(supplementCents || 0);
-        title.textContent = years + " anni · " + formatUsd(baseCents + extra);
+        title.textContent = years + " anni · " + formatEur(baseCents + extra);
         note.textContent = extra > 0
-          ? "Pacchetto " + formatUsd(baseCents) + " + supplemento dominio " + formatUsd(extra) + ", IVA inclusa"
+          ? "Pacchetto " + formatEur(baseCents) + " + supplemento dominio " + formatEur(extra) + ", IVA inclusa"
           : "Un unico pagamento, IVA inclusa";
       }
 
@@ -1087,6 +1087,18 @@
         li.append(button, panel);
       }
 
+      function restrictionMessage(restriction) {
+        if (!restriction) return "";
+        const value = typeof restriction === "string" ? restriction.trim() : "";
+        if (value.toLowerCase() === "v2.it_legal_documents") {
+          return "Per registrare un dominio .it sono richiesti dati aziendali validi e la verifica dell’email del registrante.";
+        }
+        if (!value || /^[a-z0-9]+(?:[._-][a-z0-9]+)+$/i.test(value)) {
+          return "Questa estensione richiede alcuni dati aggiuntivi per completare la registrazione.";
+        }
+        return value;
+      }
+
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         const value = input.value.trim();
@@ -1140,10 +1152,11 @@
                 li.append(quote);
               }
             }
-            if (item.eligibilityReason || item.restriction) {
+            const noteMessage = item.eligibilityReason || restrictionMessage(item.restriction);
+            if (noteMessage) {
               const note = document.createElement("span");
               note.className = "domain-restriction";
-              note.textContent = "Nota: " + (item.eligibilityReason || item.restriction);
+              note.textContent = "Nota: " + noteMessage;
               li.append(note);
             }
             list.append(li);
