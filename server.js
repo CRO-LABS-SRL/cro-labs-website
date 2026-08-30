@@ -66,7 +66,9 @@ const REVOLUT_API_VERSION = process.env.REVOLUT_API_VERSION || "2026-04-20";
 const PUBLIC_BASE_URL = String(process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
 const DOMAIN_DEFAULT_TLDS = ["it", "com", "net", "eu"];
 const indexPath = path.join(__dirname, "index.html");
+const privacyCookiePath = path.join(__dirname, "privacy-cookie.html");
 const serviziDir = path.join(__dirname, "servizi");
+const assetsDir = path.join(__dirname, "assets");
 const phoneProtectionScriptPath = path.join(__dirname, "phone-protection.js");
 const chatWidgetScriptPath = path.join(__dirname, "chat-widget.js");
 const chatWidgetStylePath = path.join(__dirname, "chat-widget.css");
@@ -92,6 +94,30 @@ function serveServiziPage(response, pathname) {
     return sendJson(response, 404, { error: "Pagina non trovata." });
   }
   return serveHtmlFile(response, filePath);
+}
+
+function serveAsset(response, pathname) {
+  const relative = pathname.slice("/assets/".length);
+  const filePath = path.normalize(path.join(assetsDir, relative));
+  const mimeTypes = {
+    ".css": "text/css; charset=utf-8",
+    ".woff2": "font/woff2",
+    ".txt": "text/plain; charset=utf-8"
+  };
+  const contentType = mimeTypes[path.extname(filePath).toLowerCase()];
+  if (!filePath.startsWith(assetsDir + path.sep) || !contentType) {
+    return sendJson(response, 404, { error: "Risorsa non trovata." });
+  }
+  const stream = fs.createReadStream(filePath);
+  stream.once("error", () => sendJson(response, 404, { error: "Risorsa non trovata." }));
+  stream.once("open", () => {
+    const isFont = filePath.endsWith(".woff2");
+    response.writeHead(200, {
+      "Content-Type": contentType,
+      "Cache-Control": isFont ? "public, max-age=31536000, immutable" : "public, max-age=3600"
+    });
+    stream.pipe(response);
+  });
 }
 
 function sendJson(response, status, body) {
@@ -1469,6 +1495,12 @@ const server = http.createServer(async (request, response) => {
   if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     return fs.createReadStream(indexPath).pipe(response);
+  }
+  if (request.method === "GET" && url.pathname === "/privacy-cookie.html") {
+    return serveHtmlFile(response, privacyCookiePath);
+  }
+  if (request.method === "GET" && url.pathname.startsWith("/assets/")) {
+    return serveAsset(response, url.pathname);
   }
   if (request.method === "GET" && url.pathname === "/phone-protection.js") {
     response.writeHead(200, {

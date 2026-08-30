@@ -129,6 +129,13 @@
 }
 .chat-status.is-success { color: #77d8b3; }
 .chat-status.is-error { color: #ff9b91; }
+.chat-privacy {
+  margin: 0;
+  color: var(--muted, #b4c4d4);
+  font-size: 0.72rem;
+  text-align: center;
+}
+.chat-privacy a { color: var(--accent, #f6b73c); }
 .chat-conversation[hidden] { display: none; }
 .chat-thread {
   display: flex;

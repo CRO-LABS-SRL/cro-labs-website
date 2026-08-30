@@ -25,6 +25,7 @@
           <input type="email" name="email" placeholder="La tua email" maxlength="120" autocomplete="email" required>
           <textarea name="message" placeholder="Scrivi il tuo messaggio..." maxlength="2000" required></textarea>
           <input class="chat-honeypot" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <p class="chat-privacy">I dati sono usati per rispondere alla richiesta. <a href="/privacy-cookie.html">Privacy e Cookie</a></p>
           <button class="chat-submit" type="submit">Invia messaggio</button>
           <p class="chat-status" id="chat-status" role="status" aria-live="polite"></p>
         </form>

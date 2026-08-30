@@ -51,6 +51,15 @@ numero soltanto dopo una verifica valida. L'endpoint consente al massimo 5 tenta
 per indirizzo IP. Senza `CONTACT_PHONE`, `TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` la funzione
 resta chiusa e non espone il numero. Nel pannello Turnstile autorizzare il dominio pubblico del sito.
 
+## Privacy, cookie e font locali
+
+La pagina `/privacy-cookie.html` descrive i trattamenti e gli strumenti tecnici attualmente presenti.
+Il relativo link compare nei footer, vicino ai moduli e nella chat. Aggiornare l'informativa prima di
+aggiungere Google Analytics, pixel pubblicitari o nuovi fornitori che trattano dati dei visitatori.
+
+Manrope e Space Grotesk sono serviti localmente tramite `/assets/fonts.css`; i file WOFF2 e le licenze
+SIL Open Font License sono conservati in `assets/fonts/`. Le pagine non contattano Google Fonts.
+
 Per ricavare il Chat ID, inviare prima un messaggio al bot e aprire nel browser:
 
 ```text
