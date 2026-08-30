@@ -65,6 +65,7 @@ const indexPath = path.join(__dirname, "index.html");
 const serviziDir = path.join(__dirname, "servizi");
 const attempts = new Map();
 const activationInterestNotifications = new Map();
+const completedOrderNotificationJobs = new Map();
 
 function serveHtmlFile(response, filePath) {
   const stream = fs.createReadStream(filePath);
@@ -209,7 +210,7 @@ async function sendTelegramMessage(conversation, message, databaseMessageId, opt
 }
 
 async function sendTelegramNotification(title, details, options = {}) {
-  if (!BOT_TOKEN || !CHAT_ID) return;
+  if (!BOT_TOKEN || !CHAT_ID) throw new Error("Telegram non configurato.");
   const telegramPayload = {
     chat_id: CHAT_ID,
     text: [`<b>${escapeHtml(title)}</b>`, "", ...details.map((detail) => escapeHtml(detail))].join("\n"),
@@ -1030,6 +1031,95 @@ async function sendDomainActivationConfirmation(order) {
   if (!resendResponse.ok) throw new Error(`Resend ${resendResponse.status}: ${await resendResponse.text()}`);
 }
 
+function completedOrderDetails(order) {
+  return [
+    `Dominio: ${order.domain}`,
+    `Pacchetto: ${order.plan_years} anni`,
+    `Totale pagato: ${(Number(order.amount_cents) / 100).toFixed(2)} ${String(order.currency).toUpperCase()}`,
+    `Ordine CRO Labs: ${order.id}`,
+    `Ordine Revolut: ${order.revolut_order_id}`,
+    `Azienda: ${order.company_name}`,
+    `Partita IVA: ${order.vat_number}`,
+    `Codice fiscale: ${order.fiscal_code || "non indicato"}`,
+    `Referente: ${order.contact_first_name} ${order.contact_last_name}`,
+    `Email: ${order.email}`,
+    `Telefono: ${order.phone}`,
+    `Indirizzo: ${order.address}, ${order.postal_code} ${order.city} (${order.province}), ${order.country}`
+  ];
+}
+
+async function sendCompletedOrderMerchantEmail(order) {
+  if (!RESEND_API_KEY || !CONTACT_TO_EMAIL) throw new Error("Email interna ordine non configurata.");
+  const details = completedOrderDetails(order);
+  const hostingerSearchUrl = hostingerDomainSearchUrl(order.domain);
+  const resendResponse = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: EMAIL_FROM,
+      to: [CONTACT_TO_EMAIL],
+      reply_to: order.email,
+      subject: `PAGAMENTO COMPLETATO - registra ${order.domain}`,
+      text: ["Pagamento Revolut completato e verificato.", "", ...details, "", `Apri Hostinger: ${hostingerSearchUrl}`, "", "Procedere con la registrazione del dominio su Hostinger."].join("\n"),
+      html: `<h2>Pagamento completato: registra il dominio</h2><p>Revolut ha confermato il pagamento e importo/valuta corrispondono all'ordine.</p><ul>${details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join("")}</ul><p><a href="${escapeHtml(hostingerSearchUrl)}">Apri il dominio su Hostinger</a></p><p><strong>Procedere con la registrazione del dominio su Hostinger.</strong></p>`
+    }),
+    signal: AbortSignal.timeout(15000)
+  });
+  if (!resendResponse.ok) throw new Error(`Resend interno ${resendResponse.status}: ${await resendResponse.text()}`);
+}
+
+async function sendCompletedOrderTelegram(order) {
+  await sendTelegramNotification("PAGAMENTO COMPLETATO — REGISTRA DOMINIO", [
+    "Importo e valuta verificati con Revolut.",
+    ...completedOrderDetails(order),
+    "Azione richiesta: registrare il dominio su Hostinger."
+  ], {
+    actionLabel: `Registra ${order.domain} su Hostinger`,
+    actionUrl: hostingerDomainSearchUrl(order.domain)
+  });
+}
+
+async function deliverCompletedOrderNotifications(order) {
+  const errors = [];
+  if (!order.customer_confirmation_sent_at) {
+    try {
+      await sendDomainActivationConfirmation(order);
+      await dbQuery("UPDATE domain_service_orders SET customer_confirmation_sent_at = UTC_TIMESTAMP() WHERE id = ?", [order.id]);
+      order.customer_confirmation_sent_at = new Date();
+    } catch (error) {
+      errors.push(`conferma cliente: ${error.message}`);
+    }
+  }
+  if (!order.merchant_email_sent_at) {
+    try {
+      await sendCompletedOrderMerchantEmail(order);
+      await dbQuery("UPDATE domain_service_orders SET merchant_email_sent_at = UTC_TIMESTAMP() WHERE id = ?", [order.id]);
+      order.merchant_email_sent_at = new Date();
+    } catch (error) {
+      errors.push(`email interna: ${error.message}`);
+    }
+  }
+  if (!order.merchant_telegram_sent_at) {
+    try {
+      await sendCompletedOrderTelegram(order);
+      await dbQuery("UPDATE domain_service_orders SET merchant_telegram_sent_at = UTC_TIMESTAMP() WHERE id = ?", [order.id]);
+      order.merchant_telegram_sent_at = new Date();
+    } catch (error) {
+      errors.push(`Telegram: ${error.message}`);
+    }
+  }
+  if (errors.length) throw new Error(`Notifiche ordine incomplete: ${errors.join("; ")}`);
+}
+
+async function ensureCompletedOrderNotifications(order) {
+  const running = completedOrderNotificationJobs.get(order.id);
+  if (running) return running;
+  const job = deliverCompletedOrderNotifications(order)
+    .finally(() => completedOrderNotificationJobs.delete(order.id));
+  completedOrderNotificationJobs.set(order.id, job);
+  return job;
+}
+
 function localStatusForRevolutState(state) {
   if (state === "completed") return "completed";
   if (state === "cancelled") return "cancelled";
@@ -1037,9 +1127,9 @@ function localStatusForRevolutState(state) {
   return "pending";
 }
 
-async function syncRevolutOrder(revolutOrderId) {
+async function syncRevolutOrder(revolutOrderId, options = {}) {
   const rows = await dbQuery(
-    "SELECT id, amount_cents, currency, status, domain, plan_years, contact_first_name, email FROM domain_service_orders WHERE revolut_order_id = ? LIMIT 1",
+    "SELECT id, revolut_order_id, amount_cents, currency, status, domain, plan_years, company_name, vat_number, fiscal_code, contact_first_name, contact_last_name, email, phone, address, city, province, postal_code, country, customer_confirmation_sent_at, merchant_email_sent_at, merchant_telegram_sent_at FROM domain_service_orders WHERE revolut_order_id = ? LIMIT 1",
     [revolutOrderId]
   );
   const localOrder = rows[0];
@@ -1053,10 +1143,18 @@ async function syncRevolutOrder(revolutOrderId) {
   ) {
     throw new Error(`Importo o valuta Revolut non corrispondenti per ordine ${localOrder.id}`);
   }
-  if (nextStatus === "completed" && localOrder.status !== "completed") {
-    await sendDomainActivationConfirmation(localOrder);
-  }
   await dbQuery("UPDATE domain_service_orders SET status = ? WHERE id = ?", [nextStatus, localOrder.id]);
+  if (nextStatus === "completed") {
+    try {
+      await ensureCompletedOrderNotifications(localOrder);
+    } catch (error) {
+      if (options.ignoreNotificationErrors) {
+        console.error("Notifiche ordine da ritentare:", error.message, error.cause || "");
+      } else {
+        throw error;
+      }
+    }
+  }
   return { id: localOrder.id, status: nextStatus };
 }
 
@@ -1124,12 +1222,15 @@ async function handleDomainOrderStatus(request, response, url) {
   if (!/^[0-9a-f-]{36}$/i.test(orderId)) return sendJson(response, 400, { error: "Ordine non valido." });
   try {
     const rows = await dbQuery(
-      "SELECT status, revolut_order_id FROM domain_service_orders WHERE id = ? LIMIT 1",
+      "SELECT status, revolut_order_id, customer_confirmation_sent_at, merchant_email_sent_at, merchant_telegram_sent_at FROM domain_service_orders WHERE id = ? LIMIT 1",
       [orderId]
     );
     if (!rows[0]) return sendJson(response, 404, { error: "Ordine non trovato." });
-    if ((rows[0].status === "pending" || rows[0].status === "draft") && rows[0].revolut_order_id) {
-      const synced = await syncRevolutOrder(rows[0].revolut_order_id);
+    const notificationsMissing = rows[0].status === "completed" && (
+      !rows[0].customer_confirmation_sent_at || !rows[0].merchant_email_sent_at || !rows[0].merchant_telegram_sent_at
+    );
+    if ((rows[0].status === "pending" || rows[0].status === "draft" || notificationsMissing) && rows[0].revolut_order_id) {
+      const synced = await syncRevolutOrder(rows[0].revolut_order_id, { ignoreNotificationErrors: true });
       return sendJson(response, 200, { status: synced?.status || rows[0].status });
     }
     return sendJson(response, 200, { status: rows[0].status });

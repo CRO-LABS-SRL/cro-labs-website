@@ -63,6 +63,9 @@ CREATE TABLE IF NOT EXISTS domain_service_orders (
   province CHAR(2) NOT NULL,
   postal_code VARCHAR(16) NOT NULL,
   country CHAR(2) NOT NULL DEFAULT 'IT',
+  customer_confirmation_sent_at DATETIME NULL,
+  merchant_email_sent_at DATETIME NULL,
+  merchant_telegram_sent_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_domain_order_verification

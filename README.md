@@ -184,11 +184,19 @@ dal webhook Revolut prima di acquistare il dominio tramite Hostinger.
 Quando Revolut conferma lo stato `completed` e importo/valuta coincidono con l'ordine locale, il
 server invia al cliente tramite Resend una conferma di pagamento e presa in carico. L'email precisa
 che il dominio sara considerato attivo soltanto dopo la successiva conferma di registrazione.
+Inoltre invia a `CONTACT_TO_EMAIL` e alla chat Telegram una notifica operativa con tutti i dati
+necessari alla registrazione: azienda, partita IVA/codice fiscale, referente, recapiti, indirizzo,
+dominio, pacchetto, importo e riferimenti CRO Labs/Revolut. Il messaggio Telegram include il pulsante
+per aprire il dominio su Hostinger. I tre invii hanno indicatori separati nel database, così un
+retry del webhook completa soltanto le notifiche mancanti senza ripetere quelle gia riuscite.
 Anche il controllo stato eseguito dalla pagina sincronizza l'ordine con Revolut come recupero nel
 caso in cui il webhook arrivi in ritardo.
 La pagina controlla inoltre che le API restituiscano realmente JSON: un'eventuale pagina HTML di
 errore del proxy/hosting viene trasformata in un messaggio leggibile, senza mostrare errori tecnici
 come `Unexpected token '<'` al cliente.
+
+Su un database gia esistente, prima di pubblicare questa versione, eseguire la migrazione
+`migrations/2026-08-30-domain-order-notifications.sql`.
 
 ### Webhook Revolut
 
