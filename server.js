@@ -494,6 +494,91 @@ function activationCodeHash(code, salt) {
   return crypto.scryptSync(String(code), salt, 32).toString("hex");
 }
 
+function formatDomainCatalogPrice(cents, currency) {
+  if (!Number.isFinite(Number(cents))) return "non disponibile";
+  return `${(Number(cents) / 100).toFixed(2)} ${currency}`;
+}
+
+async function handleDomainQuoteRequest(request, response) {
+  if (!databaseConfigured || !BOT_TOKEN || !CHAT_ID || !HOSTINGER_API) {
+    return sendJson(response, 503, { error: "Richiesta preventivo momentaneamente non disponibile." });
+  }
+  if (isRateLimited(`domain-quote:${requestIp(request)}`, 5)) {
+    return sendJson(response, 429, { error: "Troppe richieste. Riprova tra qualche minuto." });
+  }
+  const body = await readJsonBody(request, response);
+  if (!body) return;
+  if (body.website) return sendJson(response, 200, { ok: true });
+  const domain = normalizeDomainLabel(body.domain);
+  const name = orderText(body.name, 80);
+  const email = orderText(body.email, 120).toLowerCase();
+  const phone = orderText(body.phone, 40);
+  const note = orderText(body.note, 400);
+  const consentAccepted = body.contact_consent === true || body.contact_consent === "on";
+  if (!isValidFullDomain(domain) || !name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !phone || !consentAccepted) {
+    return sendJson(response, 400, { error: "Compila correttamente nome, email e telefono." });
+  }
+  try {
+    const eligibility = await getDomainEligibility(domain);
+    if (!eligibility.available) {
+      return sendJson(response, 409, { error: "Il dominio non risulta più disponibile." });
+    }
+    if (eligibility.eligible) {
+      return sendJson(response, 409, { error: "Questo dominio può essere attivato direttamente online." });
+    }
+    const quote = eligibility.quote;
+    const fiveYearEstimate = quote
+      ? quote.firstYearPriceCents + quote.renewalPriceCents * 4
+      : null;
+    const tenYearEstimate = quote
+      ? quote.firstYearPriceCents + quote.renewalPriceCents * 9
+      : null;
+    const rawRestrictionDetails = eligibility.restriction
+      ? (JSON.stringify(eligibility.restriction) || String(eligibility.restriction))
+      : "nessuna informazione aggiuntiva";
+    const restrictionDetails = rawRestrictionDetails.slice(0, 250);
+    const telegramMessage = [
+      "RICHIESTA PREVENTIVO DOMINIO",
+      `Dominio: ${domain}`,
+      `Telefono cliente: ${phone}`,
+      `Motivo preventivo: ${eligibility.reason || "verifica manuale"}`,
+      `Prezzo catalogo primo anno: ${quote ? formatDomainCatalogPrice(quote.firstYearPriceCents, quote.currency) : "non disponibile"}`,
+      `Prezzo catalogo rinnovo: ${quote ? formatDomainCatalogPrice(quote.renewalPriceCents, quote.currency) : "non disponibile"}`,
+      `Stima catalogo 5 anni: ${quote ? formatDomainCatalogPrice(fiveYearEstimate, quote.currency) : "non disponibile"}`,
+      `Stima catalogo 10 anni: ${quote ? formatDomainCatalogPrice(tenYearEstimate, quote.currency) : "non disponibile"}`,
+      `Voce catalogo Hostinger: ${quote?.itemId || "non disponibile"}`,
+      `Restrizioni API: ${restrictionDetails}`,
+      "Nota: per domini premium il prezzo del catalogo TLD potrebbe non essere il prezzo specifico finale.",
+      note ? `Messaggio cliente: ${note}` : "Messaggio cliente: nessuna nota"
+    ].join("\n").slice(0, 2000);
+    const visitorMessage = [
+      `Richiesta preventivo per il dominio ${domain}.`,
+      note ? `Messaggio: ${note}` : "Vorrei ricevere informazioni sui costi e sull'attivazione."
+    ].join("\n").slice(0, 1200);
+
+    const publicId = crypto.randomUUID();
+    const conversationId = crypto.randomUUID();
+    const accessToken = crypto.randomBytes(32).toString("hex");
+    await dbQuery(
+      "INSERT INTO chat_conversations (id, public_id, access_token_hash, name, email) VALUES (?, ?, ?, ?, ?)",
+      [conversationId, publicId, hashToken(accessToken), name, email]
+    );
+    const saved = await dbQuery(
+      "INSERT INTO chat_messages (conversation_id, sender, body) VALUES (?, 'visitor', ?)",
+      [conversationId, visitorMessage]
+    );
+    await sendTelegramMessage(
+      { id: conversationId, public_id: publicId, name, email },
+      telegramMessage,
+      saved.insertId
+    );
+    return sendJson(response, 201, { ok: true, sessionId: publicId, accessToken });
+  } catch (error) {
+    console.error("Errore richiesta preventivo dominio:", error.message, error.cause || "");
+    return sendJson(response, 502, { error: "Non siamo riusciti a inviare la richiesta. Riprova." });
+  }
+}
+
 async function handleDomainActivationRequest(request, response) {
   if (!databaseConfigured || !RESEND_API_KEY) {
     return sendJson(response, 503, { error: "Verifica email momentaneamente non disponibile." });
@@ -1010,6 +1095,7 @@ const server = http.createServer(async (request, response) => {
   if (request.method === "POST" && url.pathname === "/api/contact") return handleContact(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/check") return handleDomainCheck(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/whois") return handleDomainWhois(request, response);
+  if (request.method === "POST" && url.pathname === "/api/domains/quote-request") return handleDomainQuoteRequest(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/activation/request-code") return handleDomainActivationRequest(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/activation/verify-code") return handleDomainActivationVerify(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/checkout") return handleDomainCheckout(request, response);

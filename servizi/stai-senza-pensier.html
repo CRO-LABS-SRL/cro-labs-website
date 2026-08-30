@@ -378,7 +378,7 @@
     .activation-field { display: grid; gap: 0.35rem; }
     .activation-field.is-wide { grid-column: 1 / -1; }
     .activation-field span, .plan-legend { color: var(--muted); font-size: 0.78rem; font-weight: 700; }
-    .activation-field input, .activation-field select {
+    .activation-field input, .activation-field select, .activation-field textarea {
       width: 100%;
       padding: 0.82rem 0.9rem;
       border: 1px solid var(--line);
@@ -387,7 +387,8 @@
       color: var(--text);
       font: inherit;
     }
-    .activation-field input:focus, .activation-field select:focus {
+    .activation-field textarea { min-height: 110px; resize: vertical; }
+    .activation-field input:focus, .activation-field select:focus, .activation-field textarea:focus {
       outline: 2px solid var(--accent);
       outline-offset: 1px;
     }
@@ -418,6 +419,30 @@
     .activation-consent input { margin-top: 0.25rem; accent-color: var(--accent); }
     .activation-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
     .activation-status { color: var(--muted); font-size: 0.82rem; }
+    .quote-thread {
+      display: grid;
+      gap: 0.65rem;
+      max-height: 310px;
+      overflow-y: auto;
+      margin: 1rem 0;
+      padding: 0.9rem;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(0, 0, 0, 0.18);
+    }
+    .quote-message {
+      max-width: 86%;
+      padding: 0.7rem 0.85rem;
+      border-radius: 14px;
+      white-space: pre-wrap;
+      font-size: 0.86rem;
+    }
+    .quote-message.is-visitor { justify-self: end; background: rgba(246, 183, 60, 0.16); }
+    .quote-message.is-operator { justify-self: start; background: rgba(119, 216, 179, 0.14); }
+    .quote-reply-form { display: flex; gap: 0.7rem; align-items: end; }
+    .quote-reply-form .activation-field { flex: 1; }
+    .quote-reply-form textarea { min-height: 72px; }
+    .quote-honeypot { position: absolute; left: -9999px; }
     @media (max-width: 680px) {
       .activation-grid, .plan-options { grid-template-columns: 1fr; }
       .activation-field.is-wide, .plan-choice, .activation-consent, .activation-actions { grid-column: auto; }
@@ -562,6 +587,53 @@
             <span class="activation-status" id="activation-status" role="status" aria-live="polite">Pagamento sicuro gestito da Revolut.</span>
           </div>
         </form>
+      </div>
+      <div class="activation-form-wrap" id="domain-quote-wrap" hidden>
+        <div class="activation-form-heading">
+          <h3>Richiedi un preventivo personalizzato</h3>
+          <p>La richiesta arriva subito al team CRO Labs su Telegram. Potrai leggere qui la risposta.</p>
+          <span class="selected-domain" id="quote-selected-domain"></span>
+        </div>
+        <form id="domain-quote-form" class="activation-grid" novalidate>
+          <input id="quote-domain" name="domain" type="hidden">
+          <label class="activation-field">
+            <span>Nome e cognome *</span>
+            <input name="name" type="text" autocomplete="name" required>
+          </label>
+          <label class="activation-field">
+            <span>Email *</span>
+            <input name="email" type="email" autocomplete="email" required>
+          </label>
+          <label class="activation-field is-wide">
+            <span>Telefono *</span>
+            <input name="phone" type="tel" autocomplete="tel" required>
+          </label>
+          <label class="activation-field is-wide">
+            <span>Messaggio</span>
+            <textarea name="note" maxlength="400" placeholder="Scrivi eventuali informazioni o domande..."></textarea>
+          </label>
+          <input class="quote-honeypot" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <label class="activation-consent">
+            <input name="contact_consent" type="checkbox" required>
+            <span>Autorizzo CRO Labs a ricontattarmi in merito al preventivo richiesto. *</span>
+          </label>
+          <div class="activation-actions">
+            <button class="button button-primary" id="quote-submit" type="submit">Invia richiesta su Telegram</button>
+            <span class="activation-status" id="quote-status" role="status" aria-live="polite"></span>
+          </div>
+        </form>
+        <div id="domain-quote-conversation" hidden>
+          <p class="verified-email">✓ Richiesta inviata. Ti risponderemo qui appena possibile.</p>
+          <div class="quote-thread" id="domain-quote-thread" aria-live="polite"></div>
+          <form class="quote-reply-form" id="domain-quote-reply-form">
+            <label class="activation-field">
+              <span>Rispondi a CRO Labs</span>
+              <textarea name="message" maxlength="2000" required></textarea>
+            </label>
+            <button class="button button-primary" type="submit">Invia</button>
+          </form>
+          <p class="activation-status" id="quote-reply-status" role="status" aria-live="polite"></p>
+        </div>
       </div>
     </section>
 
@@ -718,10 +790,22 @@
       const plan5Note = document.getElementById("plan-5-note");
       const plan10Title = document.getElementById("plan-10-title");
       const plan10Note = document.getElementById("plan-10-note");
+      const quoteWrap = document.getElementById("domain-quote-wrap");
+      const quoteForm = document.getElementById("domain-quote-form");
+      const quoteDomain = document.getElementById("quote-domain");
+      const quoteSelectedDomain = document.getElementById("quote-selected-domain");
+      const quoteSubmit = document.getElementById("quote-submit");
+      const quoteStatus = document.getElementById("quote-status");
+      const quoteConversation = document.getElementById("domain-quote-conversation");
+      const quoteThread = document.getElementById("domain-quote-thread");
+      const quoteReplyForm = document.getElementById("domain-quote-reply-form");
+      const quoteReplyStatus = document.getElementById("quote-reply-status");
       if (!form) return;
 
       let verificationId = null;
       let selectedPlanTotals = { 5: 36000, 10: 69000 };
+      let quoteSession = null;
+      let quotePollTimer = null;
 
       const formatEur = (cents) => new Intl.NumberFormat("it-IT", {
         style: "currency",
@@ -760,6 +844,105 @@
         activationStatus.textContent = "Pagamento sicuro gestito da Revolut.";
         activationWrap.scrollIntoView({ behavior: "smooth", block: "start" });
       }
+
+      function openQuoteForm(domain) {
+        if (quotePollTimer) window.clearInterval(quotePollTimer);
+        quoteSession = null;
+        quoteForm.reset();
+        quoteDomain.value = domain;
+        quoteSelectedDomain.textContent = domain;
+        quoteStatus.textContent = "";
+        quoteForm.hidden = false;
+        quoteConversation.hidden = true;
+        quoteThread.replaceChildren();
+        activationWrap.hidden = true;
+        quoteWrap.hidden = false;
+        quoteWrap.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      function renderQuoteMessages(messages) {
+        quoteThread.replaceChildren();
+        messages.forEach((message) => {
+          const bubble = document.createElement("div");
+          bubble.className = "quote-message is-" + message.sender;
+          bubble.textContent = message.body;
+          quoteThread.append(bubble);
+        });
+        quoteThread.scrollTop = quoteThread.scrollHeight;
+      }
+
+      async function loadQuoteMessages() {
+        if (!quoteSession) return;
+        try {
+          const response = await fetch(
+            "/api/chat/messages?session=" + encodeURIComponent(quoteSession.sessionId),
+            { headers: { "X-Chat-Token": quoteSession.accessToken } }
+          );
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Conversazione non disponibile.");
+          renderQuoteMessages(result.messages || []);
+        } catch (error) {
+          quoteReplyStatus.textContent = error.message || "Conversazione non disponibile.";
+        }
+      }
+
+      quoteForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!quoteForm.reportValidity()) return;
+        quoteSubmit.disabled = true;
+        quoteStatus.textContent = "Invio della richiesta su Telegram...";
+        try {
+          const payload = Object.fromEntries(new FormData(quoteForm).entries());
+          const response = await fetch("/api/domains/quote-request", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          if (!response.ok || !result.sessionId || !result.accessToken) {
+            throw new Error(result.error || "Invio non riuscito.");
+          }
+          quoteSession = { sessionId: result.sessionId, accessToken: result.accessToken };
+          quoteForm.hidden = true;
+          quoteConversation.hidden = false;
+          await loadQuoteMessages();
+          quotePollTimer = window.setInterval(loadQuoteMessages, 3000);
+        } catch (error) {
+          quoteStatus.textContent = error.message || "Invio non riuscito. Riprova.";
+        } finally {
+          quoteSubmit.disabled = false;
+        }
+      });
+
+      quoteReplyForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!quoteSession || !quoteReplyForm.reportValidity()) return;
+        const button = quoteReplyForm.querySelector("button");
+        const message = quoteReplyForm.elements.message.value.trim();
+        if (!message) return;
+        button.disabled = true;
+        quoteReplyStatus.textContent = "Invio...";
+        try {
+          const response = await fetch("/api/chat/message", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId: quoteSession.sessionId,
+              accessToken: quoteSession.accessToken,
+              message
+            })
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Invio non riuscito.");
+          quoteReplyForm.reset();
+          quoteReplyStatus.textContent = "Messaggio inviato.";
+          await loadQuoteMessages();
+        } catch (error) {
+          quoteReplyStatus.textContent = error.message || "Invio non riuscito.";
+        } finally {
+          button.disabled = false;
+        }
+      });
 
       async function requestVerificationCode() {
         if (!verificationEmail.reportValidity()) return;
@@ -949,10 +1132,11 @@
             } else {
               if (!item.available) attachWhois(li, item.domain);
               if (item.available) {
-                const quote = document.createElement("a");
+                const quote = document.createElement("button");
+                quote.type = "button";
                 quote.className = "button button-secondary";
-                quote.href = "mailto:info@cro-labs.it?subject=" + encodeURIComponent("Preventivo dominio " + item.domain);
                 quote.textContent = "Richiedi preventivo";
+                quote.addEventListener("click", () => openQuoteForm(item.domain));
                 li.append(quote);
               }
             }

@@ -109,6 +109,24 @@ JSON via HTTPS, nessun token) e restituisce registrar, date di registrazione/sca
 stato, nameserver e DNSSEC. I risultati sono in cache per 6 ore; limite per IP 20/10 minuti.
 RDAP non copre `.it` (il registro non lo espone): per quei domini il tasto mostra un avviso.
 
+### Preventivi dominio via Telegram
+
+I domini disponibili che richiedono una valutazione manuale mostrano **Richiedi preventivo**.
+Il pulsante apre un modulo inline con nome, email, telefono e messaggio e chiama
+`POST /api/domains/quote-request`. Il server ricalcola disponibilita e prezzo senza fidarsi del
+browser, crea una normale conversazione nelle tabelle `chat_*` e invia il messaggio al bot Telegram
+gia configurato con `TELEGRAM_BOT_TOKEN` e `TELEGRAM_CHAT_ID`.
+
+Il messaggio Telegram include dominio, recapiti, prezzo catalogo del primo anno, rinnovo, stime
+catalogo 5/10 anni, item ID e motivo del preventivo. Questi dati interni non vengono restituiti al
+browser: il cliente vede solo la propria richiesta. Rispondendo al messaggio con la funzione
+**Rispondi** di Telegram, la risposta appare nella conversazione inline della pagina, aggiornata
+ogni 3 secondi. Per un dominio premium il prezzo TLD viene segnalato come indicativo, perche potrebbe
+non coincidere con il prezzo specifico finale del nome.
+
+Non viene inviata alcuna email. Il recapito email e il telefono restano disponibili nel messaggio
+Telegram per ricontattare il cliente se lascia la pagina.
+
 ### Verifica email prima dell'attivazione
 
 Il pulsante **Attivalo con noi** richiede la verifica dell'indirizzo email prima di mostrare
