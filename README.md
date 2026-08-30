@@ -78,6 +78,31 @@ La pagina `servizi/stai-senza-pensier.html` ha un modulo che interroga
 - Estensioni controllate: quella eventualmente digitata dall'utente + `it`, `com`, `net`, `eu`.
 - Senza `HOSTINGER_API` l'endpoint risponde 503 e il modulo mostra "non disponibile".
 
+Per ogni dominio libero il server consulta anche il catalogo Hostinger e confronta il prezzo del
+primo anno e il prezzo ordinario di rinnovo. La configurazione predefinita usa euro:
+
+```env
+DOMAIN_PRICE_CURRENCY=EUR
+DOMAIN_MAX_ANNUAL_PRICE_CENTS=3000
+DOMAIN_AUTO_EXTRA_MAX_ANNUAL_PRICE_CENTS=6000
+DOMAIN_EXTRA_MARGIN_PERCENT=30
+```
+
+Fino a 30 EUR/anno il dominio e incluso. Tra 30 e 60 EUR/anno il server stima il costo per la durata
+scelta (`primo anno + rinnovo * anni restanti`), sottrae la quota gia inclusa e applica un margine
+del 30%; il supplemento viene arrotondato all'euro superiore e aggiunto al totale Revolut. Oltre
+60 EUR/anno, per domini premium/restricted o prezzi non verificabili viene proposto un preventivo.
+Se il catalogo viene interrogato in una valuta diversa da EUR, configurare anche il tasso prudenziale
+usato per convertire il supplemento in euro, ad esempio `DOMAIN_PRICE_TO_EUR_RATE=1` per USD; senza
+questo valore i domini che richiedono un extra passano a preventivo manuale.
+
+Il controllo viene ripetuto sul server subito prima della creazione del checkout Revolut, quindi
+prezzi e supplementi non possono essere modificati dal browser. Il totale visualizzato viene inoltre
+inviato come conferma: se non coincide piu con il calcolo autorevole del server, il checkout viene
+bloccato e il cliente deve ripetere la ricerca per accettare il nuovo prezzo.
+Il catalogo viene conservato in cache per un'ora; prima dell'acquisto Hostinger sara comunque
+necessario eseguire un'ultima verifica del prezzo.
+
 Accanto a ogni dominio risultato "occupato" c'e un tasto **WHOIS** che chiama
 `POST /api/domains/whois`; il server interroga RDAP (`https://rdap.org/domain/<dominio>`,
 JSON via HTTPS, nessun token) e restituisce registrar, date di registrazione/scadenza,

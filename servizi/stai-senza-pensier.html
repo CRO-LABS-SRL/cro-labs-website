@@ -304,6 +304,7 @@
     }
     .domain-badge.is-free { color: #0b1422; background: #77d8b3; }
     .domain-badge.is-taken { color: #ffd9cd; background: rgba(242, 118, 91, 0.22); }
+    .domain-badge.is-excluded { color: #ffe7ae; background: rgba(246, 183, 60, 0.18); }
     .domain-results li .button { margin-left: auto; padding: 0.6rem 1rem; font-size: 0.85rem; }
     .domain-restriction { flex-basis: 100%; color: var(--muted); font-size: 0.78rem; }
     @media (max-width: 520px) { .domain-results li .button { margin-left: 0; } }
@@ -544,11 +545,11 @@
             <div class="plan-options">
               <label class="plan-option">
                 <input type="radio" name="plan" value="5" required>
-                <span><strong>5 anni · € 360</strong><small>Un unico pagamento, IVA inclusa</small></span>
+                <span><strong id="plan-5-title">5 anni · € 360</strong><small id="plan-5-note">Un unico pagamento, IVA inclusa</small></span>
               </label>
               <label class="plan-option">
                 <input type="radio" name="plan" value="10" required>
-                <span><strong>10 anni · € 690</strong><small>Un unico pagamento, IVA inclusa</small></span>
+                <span><strong id="plan-10-title">10 anni · € 690</strong><small id="plan-10-note">Un unico pagamento, IVA inclusa</small></span>
               </label>
             </div>
           </fieldset>
@@ -568,7 +569,7 @@
       <div class="section-heading">
         <span class="pill">Pacchetti</span>
         <h2>Un unico pagamento, per 5 o 10 anni di tranquillità.</h2>
-        <p>Prezzi IVA inclusa. Include 1 dominio con registrazione o trasferimento e gestione per tutta la durata scelta.</p>
+        <p>Prezzi IVA inclusa. Include 1 dominio standard con registrazione o trasferimento e gestione per tutta la durata scelta. Per estensioni con costi superiori, l'eventuale supplemento viene mostrato prima del pagamento.</p>
       </div>
       <div class="price-grid">
         <article class="price-card">
@@ -713,14 +714,39 @@
       const verifyCodeButton = document.getElementById("verify-email-code");
       const resendCodeButton = document.getElementById("resend-verification-code");
       const verifiedEmail = document.getElementById("verified-email");
+      const plan5Title = document.getElementById("plan-5-title");
+      const plan5Note = document.getElementById("plan-5-note");
+      const plan10Title = document.getElementById("plan-10-title");
+      const plan10Note = document.getElementById("plan-10-note");
       if (!form) return;
 
       let verificationId = null;
+      let selectedPlanTotals = { 5: 36000, 10: 69000 };
 
-      function openActivationForm(domain) {
+      const formatEur = (cents) => new Intl.NumberFormat("it-IT", {
+        style: "currency",
+        currency: "EUR",
+        maximumFractionDigits: 0
+      }).format(Number(cents) / 100);
+
+      function setPlanPrice(years, baseCents, supplementCents, title, note) {
+        const extra = Number(supplementCents || 0);
+        title.textContent = years + " anni · " + formatEur(baseCents + extra);
+        note.textContent = extra > 0
+          ? "Pacchetto " + formatEur(baseCents) + " + supplemento dominio " + formatEur(extra) + ", IVA inclusa"
+          : "Un unico pagamento, IVA inclusa";
+      }
+
+      function openActivationForm(domain, supplements) {
         emailVerificationForm.reset();
         activationForm.reset();
         verificationId = null;
+        selectedPlanTotals = {
+          5: 36000 + Number(supplements?.[5] || 0),
+          10: 69000 + Number(supplements?.[10] || 0)
+        };
+        setPlanPrice(5, 36000, supplements?.[5], plan5Title, plan5Note);
+        setPlanPrice(10, 69000, supplements?.[10], plan10Title, plan10Note);
         activationDomain.value = domain;
         activationToken.value = "";
         selectedDomain.textContent = domain;
@@ -906,23 +932,34 @@
             name.className = "domain-name";
             name.textContent = item.domain;
             const badge = document.createElement("span");
-            badge.className = "domain-badge " + (item.available ? "is-free" : "is-taken");
-            badge.textContent = item.available ? "Libero" : "Occupato";
+            badge.className = "domain-badge " + (
+              !item.available ? "is-taken" : (item.eligible ? "is-free" : "is-excluded")
+            );
+            badge.textContent = !item.available
+              ? "Occupato"
+              : (item.eligible ? (item.requiresSupplement ? "Libero + extra" : "Libero") : "Preventivo");
             li.append(name, badge);
-            if (item.available) {
+            if (item.available && item.eligible) {
               const cta = document.createElement("button");
               cta.type = "button";
               cta.className = "button button-primary";
               cta.textContent = "Attivalo con noi";
-              cta.addEventListener("click", () => openActivationForm(item.domain));
+              cta.addEventListener("click", () => openActivationForm(item.domain, item.supplements));
               li.append(cta);
             } else {
-              attachWhois(li, item.domain);
+              if (!item.available) attachWhois(li, item.domain);
+              if (item.available) {
+                const quote = document.createElement("a");
+                quote.className = "button button-secondary";
+                quote.href = "mailto:info@cro-labs.it?subject=" + encodeURIComponent("Preventivo dominio " + item.domain);
+                quote.textContent = "Richiedi preventivo";
+                li.append(quote);
+              }
             }
-            if (item.restriction) {
+            if (item.eligibilityReason || item.restriction) {
               const note = document.createElement("span");
               note.className = "domain-restriction";
-              note.textContent = "Nota: " + item.restriction;
+              note.textContent = "Nota: " + (item.eligibilityReason || item.restriction);
               li.append(note);
             }
             list.append(li);
@@ -952,6 +989,7 @@
           const payload = Object.fromEntries(new FormData(activationForm).entries());
           payload.verification_id = verificationId;
           payload.registration_consent = activationForm.elements.registration_consent.checked;
+          payload.quoted_total_cents = selectedPlanTotals[Number(payload.plan)];
           const response = await fetch("/api/domains/checkout", {
             method: "POST",
             headers: { "Content-Type": "application/json" },

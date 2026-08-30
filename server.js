@@ -32,6 +32,26 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL;
 const EMAIL_FROM = process.env.EMAIL_FROM || "CRO Labs <onboarding@resend.dev>";
 const HOSTINGER_API = process.env.HOSTINGER_API || process.env.HOSTINGER_API_TOKEN;
+const configuredDomainCurrency = String(process.env.DOMAIN_PRICE_CURRENCY || "EUR").toUpperCase();
+const DOMAIN_PRICE_CURRENCY = /^[A-Z]{3}$/.test(configuredDomainCurrency) ? configuredDomainCurrency : "EUR";
+const configuredDomainPriceLimit = Number(process.env.DOMAIN_MAX_ANNUAL_PRICE_CENTS);
+const DOMAIN_MAX_ANNUAL_PRICE_CENTS = Number.isSafeInteger(configuredDomainPriceLimit) && configuredDomainPriceLimit > 0
+  ? configuredDomainPriceLimit
+  : 3000;
+const configuredDomainExtraLimit = Number(process.env.DOMAIN_AUTO_EXTRA_MAX_ANNUAL_PRICE_CENTS);
+const DOMAIN_AUTO_EXTRA_MAX_ANNUAL_PRICE_CENTS = Number.isSafeInteger(configuredDomainExtraLimit) &&
+  configuredDomainExtraLimit >= DOMAIN_MAX_ANNUAL_PRICE_CENTS
+  ? configuredDomainExtraLimit
+  : 6000;
+const configuredDomainExtraMargin = Number(process.env.DOMAIN_EXTRA_MARGIN_PERCENT);
+const DOMAIN_EXTRA_MARGIN_PERCENT = Number.isFinite(configuredDomainExtraMargin) &&
+  configuredDomainExtraMargin >= 0 && configuredDomainExtraMargin <= 100
+  ? configuredDomainExtraMargin
+  : 30;
+const configuredDomainToEurRate = Number(process.env.DOMAIN_PRICE_TO_EUR_RATE);
+const DOMAIN_PRICE_TO_EUR_RATE = DOMAIN_PRICE_CURRENCY === "EUR"
+  ? 1
+  : (Number.isFinite(configuredDomainToEurRate) && configuredDomainToEurRate > 0 ? configuredDomainToEurRate : null);
 const REVOLUT_SECRET_KEY = process.env.REVOLUT_SECRET_KEY;
 const REVOLUT_WEBHOOK_SECRET = process.env.REVOLUT_WEBHOOK_SECRET;
 const REVOLUT_ENV = String(process.env.REVOLUT_ENV || "sandbox").toLowerCase();
@@ -333,6 +353,143 @@ function isValidFullDomain(domain) {
   return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z]{2,63})+$/.test(domain);
 }
 
+const hostingerCatalogCache = { at: 0, items: null };
+const HOSTINGER_CATALOG_TTL_MS = 60 * 60 * 1000;
+
+async function fetchHostingerDomainCatalog() {
+  if (hostingerCatalogCache.items && Date.now() - hostingerCatalogCache.at < HOSTINGER_CATALOG_TTL_MS) {
+    return hostingerCatalogCache.items;
+  }
+  const catalogResponse = await fetch("https://developers.hostinger.com/api/billing/v1/catalog?category=DOMAIN", {
+    headers: {
+      "Authorization": `Bearer ${HOSTINGER_API}`,
+      "Accept": "application/json"
+    },
+    signal: AbortSignal.timeout(15000)
+  });
+  if (!catalogResponse.ok) {
+    throw new Error(`Hostinger catalog ${catalogResponse.status}: ${await catalogResponse.text()}`);
+  }
+  const payload = await catalogResponse.json();
+  const items = Array.isArray(payload) ? payload : (payload.data || []);
+  hostingerCatalogCache.at = Date.now();
+  hostingerCatalogCache.items = items;
+  return items;
+}
+
+function annualDomainPriceForTld(items, tld) {
+  const normalizedTld = String(tld || "").toLowerCase();
+  const matchingItems = items.filter((item) => {
+    const id = String(item.id || "").toLowerCase();
+    const name = String(item.name || "").toLowerCase();
+    return String(item.category || "").toUpperCase() === "DOMAIN" &&
+      (id.includes(`-domain-${normalizedTld}-`) || name === `.${normalizedTld}` || name.startsWith(`.${normalizedTld} `));
+  });
+  const prices = matchingItems.flatMap((item) => (Array.isArray(item.prices) ? item.prices : []).map((price) => ({
+    ...price,
+    catalogItemId: item.id
+  })));
+  const annualPrices = prices.filter((price) => {
+    const id = String(price.id || "").toLowerCase();
+    const unit = String(price.period_unit || "").toLowerCase();
+    return String(price.currency || "").toUpperCase() === DOMAIN_PRICE_CURRENCY &&
+      Number(price.period) === 1 && (unit.startsWith("year") || id.endsWith("-1y"));
+  });
+  if (!annualPrices.length) return null;
+  annualPrices.sort((a, b) => Number(a.price) - Number(b.price));
+  const selected = annualPrices[0];
+  return {
+    itemId: selected.id,
+    catalogItemId: selected.catalogItemId,
+    currency: DOMAIN_PRICE_CURRENCY,
+    firstYearPriceCents: Number(selected.first_period_price ?? selected.price),
+    renewalPriceCents: Number(selected.price),
+    maxAnnualPriceCents: DOMAIN_MAX_ANNUAL_PRICE_CENTS
+  };
+}
+
+function domainExtraCatalogCents(quote, planYears) {
+  if (!quote || ![5, 10].includes(Number(planYears))) return null;
+  const years = Number(planYears);
+  const estimatedCatalogCost = quote.firstYearPriceCents + quote.renewalPriceCents * (years - 1);
+  const includedCatalogCost = DOMAIN_MAX_ANNUAL_PRICE_CENTS * years;
+  return Math.max(0, estimatedCatalogCost - includedCatalogCost);
+}
+
+function domainSupplementForPlan(quote, planYears) {
+  const differenceCatalogCents = domainExtraCatalogCents(quote, planYears);
+  if (differenceCatalogCents === null || (differenceCatalogCents > 0 && !DOMAIN_PRICE_TO_EUR_RATE)) return null;
+  if (differenceCatalogCents === 0) return 0;
+  const differenceEurCents = differenceCatalogCents * DOMAIN_PRICE_TO_EUR_RATE;
+  const withMargin = differenceEurCents * (1 + DOMAIN_EXTRA_MARGIN_PERCENT / 100);
+  return Math.ceil(withMargin / 100) * 100;
+}
+
+function evaluateDomainEligibility(isAvailable, restriction, quote) {
+  let reason = null;
+  const extra5CatalogCents = quote ? domainExtraCatalogCents(quote, 5) : null;
+  const extra10CatalogCents = quote ? domainExtraCatalogCents(quote, 10) : null;
+  const needsCurrencyConversion = extra5CatalogCents > 0 || extra10CatalogCents > 0;
+  if (!isAvailable) reason = "Dominio non disponibile.";
+  else if (restriction) reason = "Dominio premium o soggetto a restrizioni: richiedi un preventivo personalizzato.";
+  else if (!quote) reason = "Questa estensione richiede una verifica manuale e non è acquistabile online.";
+  else if (
+    quote.firstYearPriceCents > DOMAIN_AUTO_EXTRA_MAX_ANNUAL_PRICE_CENTS ||
+    quote.renewalPriceCents > DOMAIN_AUTO_EXTRA_MAX_ANNUAL_PRICE_CENTS
+  ) reason = "Dominio ad alto costo: richiedi un preventivo personalizzato.";
+  else if (needsCurrencyConversion && !DOMAIN_PRICE_TO_EUR_RATE) {
+    reason = `Conversione ${DOMAIN_PRICE_CURRENCY}/EUR non configurata: richiedi un preventivo personalizzato.`;
+  }
+  const supplements = !reason && quote ? {
+    5: domainSupplementForPlan(quote, 5),
+    10: domainSupplementForPlan(quote, 10)
+  } : null;
+  return {
+    eligible: !reason,
+    reason,
+    supplements,
+    requiresSupplement: Boolean(supplements && (supplements[5] > 0 || supplements[10] > 0))
+  };
+}
+
+async function fetchHostingerAvailability(label, tlds) {
+  const hostingerResponse = await fetch("https://developers.hostinger.com/api/domains/v1/availability", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${HOSTINGER_API}`,
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify({ domain: label, tlds, with_alternatives: false }),
+    signal: AbortSignal.timeout(15000)
+  });
+  if (!hostingerResponse.ok) {
+    throw new Error(`Hostinger ${hostingerResponse.status}: ${await hostingerResponse.text()}`);
+  }
+  const payload = await hostingerResponse.json();
+  return Array.isArray(payload) ? payload : (payload.data || []);
+}
+
+async function getDomainEligibility(domain, availabilityItem = null) {
+  const parts = domain.split(".");
+  const tld = parts.pop();
+  const label = parts.join(".");
+  let availability = availabilityItem;
+  if (!availability) {
+    const rows = await fetchHostingerAvailability(label, [tld]);
+    availability = rows.find((item) => String(item.domain || "").toLowerCase() === domain) || rows[0];
+  }
+  const isAvailable = Boolean(availability?.is_available ?? availability?.isAvailable);
+  const restriction = availability?.restriction || null;
+  const quote = annualDomainPriceForTld(await fetchHostingerDomainCatalog(), tld);
+  return {
+    ...evaluateDomainEligibility(isAvailable, restriction, quote),
+    available: isAvailable,
+    restriction,
+    quote
+  };
+}
+
 function activationCodeHash(code, salt) {
   return crypto.scryptSync(String(code), salt, 32).toString("hex");
 }
@@ -350,6 +507,16 @@ async function handleDomainActivationRequest(request, response) {
   const email = String(body.email || "").trim().toLowerCase().slice(0, 120);
   if (!isValidFullDomain(domain) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return sendJson(response, 400, { error: "Inserisci un dominio e un indirizzo email validi." });
+  }
+
+  try {
+    const eligibility = await getDomainEligibility(domain);
+    if (!eligibility.eligible) {
+      return sendJson(response, 422, { error: eligibility.reason || "Questo dominio non è incluso nel pacchetto." });
+    }
+  } catch (error) {
+    console.error("Errore controllo prezzo prima della verifica email:", error.message, error.cause || "");
+    return sendJson(response, 502, { error: "Non riusciamo a verificare il prezzo del dominio. Riprova tra poco." });
   }
 
   const verificationId = crypto.randomUUID();
@@ -448,7 +615,7 @@ async function handleDomainCheckout(request, response) {
   const activationToken = orderText(body.activation_token, 64);
   const domain = normalizeDomainLabel(body.domain);
   const planYears = Number(body.plan);
-  const amountCents = DOMAIN_PLAN_PRICES[planYears];
+  const baseAmountCents = DOMAIN_PLAN_PRICES[planYears];
   const order = {
     companyName: orderText(body.company_name, 160),
     vatNumber: orderText(body.vat_number, 32).toUpperCase(),
@@ -469,7 +636,7 @@ async function handleDomainCheckout(request, response) {
   ];
   if (
     !/^[0-9a-f-]{36}$/i.test(verificationId) || !/^[0-9a-f]{64}$/i.test(activationToken) ||
-    !isValidFullDomain(domain) || !amountCents || required.some((value) => !value) ||
+    !isValidFullDomain(domain) || !baseAmountCents || required.some((value) => !value) ||
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(order.email) || !/^[A-Z]{2}$/.test(order.province) ||
     order.country !== "IT" || body.registration_consent !== true
   ) {
@@ -492,13 +659,36 @@ async function handleDomainCheckout(request, response) {
       return sendJson(response, 401, { error: "La verifica email è scaduta. Richiedi un nuovo codice." });
     }
 
+    const domainEligibility = await getDomainEligibility(domain);
+    if (!domainEligibility.eligible) {
+      return sendJson(response, 422, {
+        error: domainEligibility.reason || "Questo dominio non è incluso nel pacchetto."
+      });
+    }
+    const supplementCents = domainEligibility.supplements?.[planYears];
+    if (!Number.isSafeInteger(supplementCents) || supplementCents < 0) {
+      return sendJson(response, 422, { error: "Supplemento dominio non calcolabile: richiedi un preventivo personalizzato." });
+    }
+    const amountCents = baseAmountCents + supplementCents;
+    if (Number(body.quoted_total_cents) !== amountCents) {
+      return sendJson(response, 409, {
+        error: "Il prezzo del dominio è stato aggiornato. Ripeti la ricerca per vedere il nuovo totale."
+      });
+    }
+
     const existingRows = await dbQuery(
-      "SELECT id, status, checkout_url FROM domain_service_orders WHERE verification_id = ? LIMIT 1",
+      "SELECT id, status, checkout_url, plan_years, amount_cents FROM domain_service_orders WHERE verification_id = ? LIMIT 1",
       [verificationId]
     );
     const existing = existingRows[0];
-    if (existing?.status === "pending" && existing.checkout_url) {
+    if (
+      existing?.status === "pending" && existing.checkout_url &&
+      Number(existing.plan_years) === planYears && Number(existing.amount_cents) === amountCents
+    ) {
       return sendJson(response, 200, { ok: true, orderId: existing.id, checkoutUrl: existing.checkout_url });
+    }
+    if (existing?.status === "pending") {
+      return sendJson(response, 409, { error: "Esiste già un pagamento aperto per questa richiesta." });
     }
     if (existing?.status === "completed") {
       return sendJson(response, 409, { error: "Questo ordine risulta già pagato." });
@@ -530,7 +720,13 @@ async function handleDomainCheckout(request, response) {
       metadata: {
         cro_order_id: orderId,
         domain,
-        plan_years: String(planYears)
+        plan_years: String(planYears),
+        base_package_price: String(baseAmountCents),
+        domain_supplement: String(supplementCents),
+        domain_item_id: domainEligibility.quote.itemId,
+        domain_first_year_price: String(domainEligibility.quote.firstYearPriceCents),
+        domain_renewal_price: String(domainEligibility.quote.renewalPriceCents),
+        domain_price_currency: domainEligibility.quote.currency
       }
     };
     if (/^https:\/\//.test(PUBLIC_BASE_URL) || /^http:\/\/localhost(?::\d+)?$/.test(PUBLIC_BASE_URL)) {
@@ -704,28 +900,25 @@ async function handleDomainCheck(request, response) {
     if (tld && /^[a-z]{2,20}$/.test(tld) && !tlds.includes(tld)) tlds.push(tld);
   }
   try {
-    const hostingerResponse = await fetch("https://developers.hostinger.com/api/domains/v1/availability", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${HOSTINGER_API}`,
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify({ domain: label, tlds: tlds.slice(0, 5), with_alternatives: false })
-    });
-    if (!hostingerResponse.ok) {
-      throw new Error(`Hostinger ${hostingerResponse.status}: ${await hostingerResponse.text()}`);
-    }
-    const payload = await hostingerResponse.json();
-    const rows = Array.isArray(payload) ? payload : (payload.data || []);
+    const rows = await fetchHostingerAvailability(label, tlds.slice(0, 5));
+    const catalog = await fetchHostingerDomainCatalog();
     const results = rows
       .map((item, index) => {
         const domain = String(item.domain || `${label}.${tlds[index] || ""}`).toLowerCase();
+        const tld = domain.split(".").pop();
+        const available = Boolean(item.is_available ?? item.isAvailable);
+        const restriction = item.restriction || null;
+        const quote = available ? annualDomainPriceForTld(catalog, tld) : null;
+        const eligibility = evaluateDomainEligibility(available, restriction, quote);
         return {
           domain,
-          available: Boolean(item.is_available ?? item.isAvailable),
+          available,
+          eligible: eligibility.eligible,
+          requiresSupplement: eligibility.requiresSupplement,
+          supplements: eligibility.supplements,
           alternative: Boolean(item.is_alternative ?? item.isAlternative),
-          restriction: item.restriction || null
+          restriction,
+          eligibilityReason: eligibility.reason
         };
       })
       .filter((item) => item.domain && !item.domain.endsWith("."));
@@ -853,6 +1046,7 @@ server.listen(PORT, () => {
     console.log(`Chat attiva: DB ${MYSQL_USER}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}`);
   }
   console.log(`Verifica dominio Hostinger: ${HOSTINGER_API ? "attiva" : "DISATTIVA (manca HOSTINGER_API)"}`);
+  console.log(`Dominio incluso fino a ${(DOMAIN_MAX_ANNUAL_PRICE_CENTS / 100).toFixed(2)} ${DOMAIN_PRICE_CURRENCY}/anno; extra automatico fino a ${(DOMAIN_AUTO_EXTRA_MAX_ANNUAL_PRICE_CENTS / 100).toFixed(2)}`);
   console.log(`Checkout Revolut: ${REVOLUT_SECRET_KEY ? `attivo (${REVOLUT_ENV})` : "DISATTIVO (manca REVOLUT_SECRET_KEY)"}`);
   console.log(`Webhook Revolut: ${REVOLUT_WEBHOOK_SECRET ? "attivo" : "DISATTIVO (manca REVOLUT_WEBHOOK_SECRET)"}`);
 });
