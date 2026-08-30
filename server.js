@@ -68,6 +68,8 @@ const DOMAIN_DEFAULT_TLDS = ["it", "com", "net", "eu"];
 const indexPath = path.join(__dirname, "index.html");
 const serviziDir = path.join(__dirname, "servizi");
 const phoneProtectionScriptPath = path.join(__dirname, "phone-protection.js");
+const chatWidgetScriptPath = path.join(__dirname, "chat-widget.js");
+const chatWidgetStylePath = path.join(__dirname, "chat-widget.css");
 const attempts = new Map();
 const activationInterestNotifications = new Map();
 const completedOrderNotificationJobs = new Map();
@@ -1474,6 +1476,20 @@ const server = http.createServer(async (request, response) => {
       "Cache-Control": "public, max-age=3600"
     });
     return fs.createReadStream(phoneProtectionScriptPath).pipe(response);
+  }
+  if (request.method === "GET" && url.pathname === "/chat-widget.js") {
+    response.writeHead(200, {
+      "Content-Type": "text/javascript; charset=utf-8",
+      "Cache-Control": "public, max-age=3600"
+    });
+    return fs.createReadStream(chatWidgetScriptPath).pipe(response);
+  }
+  if (request.method === "GET" && url.pathname === "/chat-widget.css") {
+    response.writeHead(200, {
+      "Content-Type": "text/css; charset=utf-8",
+      "Cache-Control": "public, max-age=3600"
+    });
+    return fs.createReadStream(chatWidgetStylePath).pipe(response);
   }
   if (request.method === "GET" && (url.pathname === "/servizi" || url.pathname.startsWith("/servizi/"))) {
     return serveServiziPage(response, url.pathname);

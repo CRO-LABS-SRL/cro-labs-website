@@ -1378,6 +1378,7 @@
     const contactForm = document.getElementById("contact-form");
     const contactStatus = document.getElementById("contact-status");
     const chatStorageKey = "croLabsChatSession";
+    const chatOpenStorageKey = "croLabsChatOpen";
     let chatSession = null;
     let renderedMessageIds = "";
 
@@ -1429,16 +1430,17 @@
       }
     }
 
-    function setChatOpen(open) {
+    function setChatOpen(open, focus = true) {
       chatPanel.classList.toggle("is-open", open);
       chatPanel.setAttribute("aria-hidden", String(!open));
       chatLauncher.setAttribute("aria-expanded", String(open));
+      sessionStorage.setItem(chatOpenStorageKey, String(open));
       if (open) {
         if (chatSession) {
           showConversation();
           refreshChat();
-          chatMessageForm.elements.message.focus();
-        } else {
+          if (focus) chatMessageForm.elements.message.focus();
+        } else if (focus) {
           chatForm.elements.name.focus();
         }
       }
@@ -1513,6 +1515,7 @@
     });
 
     if (chatSession) refreshChat();
+    setChatOpen(sessionStorage.getItem(chatOpenStorageKey) === "true", false);
     setInterval(() => {
       if (chatSession && !document.hidden) refreshChat();
     }, 3000);
