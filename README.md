@@ -140,6 +140,12 @@ Telegram per ricontattare il cliente se lascia la pagina.
 Il pulsante **Attivalo con noi** richiede la verifica dell'indirizzo email prima di mostrare
 il modulo con i dati aziendali:
 
+Al clic viene chiamato anche `POST /api/domains/activation-interest`: il server ricontrolla il
+dominio e invia su Telegram un avviso con prezzi Hostinger, stime 5/10 anni, supplementi in euro,
+eventuali requisiti e pulsante di controllo Hostinger. In questa fase il cliente non ha ancora
+fornito l'email. Le notifiche identiche da stesso IP e dominio vengono deduplicate per 30 minuti e
+un errore Telegram non interrompe il percorso del cliente.
+
 1. `POST /api/domains/activation/request-code` genera un codice numerico valido 15 minuti e lo invia tramite Resend.
 2. `POST /api/domains/activation/verify-code` controlla il codice (massimo 5 tentativi) e restituisce una chiave di attivazione.
 3. Il modulo aziendale viene sbloccato solo dopo la verifica. La chiave dovra essere validata nuovamente dal futuro endpoint di pagamento.
@@ -175,6 +181,14 @@ registrati con la loro valuta originale.
 
 Il ritorno del browser non costituisce prova del pagamento: lo stato definitivo viene gestito
 dal webhook Revolut prima di acquistare il dominio tramite Hostinger.
+Quando Revolut conferma lo stato `completed` e importo/valuta coincidono con l'ordine locale, il
+server invia al cliente tramite Resend una conferma di pagamento e presa in carico. L'email precisa
+che il dominio sara considerato attivo soltanto dopo la successiva conferma di registrazione.
+Anche il controllo stato eseguito dalla pagina sincronizza l'ordine con Revolut come recupero nel
+caso in cui il webhook arrivi in ritardo.
+La pagina controlla inoltre che le API restituiscano realmente JSON: un'eventuale pagina HTML di
+errore del proxy/hosting viene trasformata in un messaggio leggibile, senza mostrare errori tecnici
+come `Unexpected token '<'` al cliente.
 
 ### Webhook Revolut
 

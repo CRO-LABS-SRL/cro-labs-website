@@ -64,6 +64,7 @@ const DOMAIN_DEFAULT_TLDS = ["it", "com", "net", "eu"];
 const indexPath = path.join(__dirname, "index.html");
 const serviziDir = path.join(__dirname, "servizi");
 const attempts = new Map();
+const activationInterestNotifications = new Map();
 
 function serveHtmlFile(response, filePath) {
   const stream = fs.createReadStream(filePath);
@@ -205,6 +206,30 @@ async function sendTelegramMessage(conversation, message, databaseMessageId, opt
     "UPDATE chat_messages SET telegram_message_id = ? WHERE id = ?",
     [telegramResult.result.message_id, databaseMessageId]
   );
+}
+
+async function sendTelegramNotification(title, details, options = {}) {
+  if (!BOT_TOKEN || !CHAT_ID) return;
+  const telegramPayload = {
+    chat_id: CHAT_ID,
+    text: [`<b>${escapeHtml(title)}</b>`, "", ...details.map((detail) => escapeHtml(detail))].join("\n"),
+    parse_mode: "HTML"
+  };
+  if (options.actionUrl && options.actionLabel) {
+    telegramPayload.reply_markup = {
+      inline_keyboard: [[{
+        text: String(options.actionLabel).slice(0, 64),
+        url: String(options.actionUrl)
+      }]]
+    };
+  }
+  const telegramResponse = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(telegramPayload)
+  });
+  const telegramResult = await telegramResponse.json();
+  if (!telegramResponse.ok || !telegramResult.ok) throw new Error(`Telegram: ${JSON.stringify(telegramResult)}`);
 }
 
 async function handleStartChat(request, response) {
@@ -532,6 +557,72 @@ function hostingerDomainSearchUrl(domain) {
   const url = new URL("https://www.hostinger.com/domain-name-search");
   url.searchParams.set("domain", domain);
   return url.toString();
+}
+
+function formatDomainSupplement(cents) {
+  return Number(cents) > 0 ? `${(Number(cents) / 100).toFixed(2)} EUR` : "incluso, nessun extra";
+}
+
+async function handleDomainActivationInterest(request, response) {
+  if (!BOT_TOKEN || !CHAT_ID || !HOSTINGER_API) {
+    return sendJson(response, 503, { error: "Notifica momentaneamente non disponibile." });
+  }
+  if (isRateLimited(`domain-interest:${requestIp(request)}`, 8)) {
+    return sendJson(response, 429, { error: "Troppe richieste. Riprova tra qualche minuto." });
+  }
+  const body = await readJsonBody(request, response);
+  if (!body) return;
+  const domain = normalizeDomainLabel(body.domain);
+  if (!isValidFullDomain(domain)) return sendJson(response, 400, { error: "Dominio non valido." });
+
+  const notificationKey = `${requestIp(request)}:${domain}`;
+  const previousNotification = activationInterestNotifications.get(notificationKey) || 0;
+  if (Date.now() - previousNotification < 30 * 60 * 1000) {
+    return sendJson(response, 200, { ok: true, duplicate: true });
+  }
+  if (activationInterestNotifications.size > 1000) {
+    const expiry = Date.now() - 30 * 60 * 1000;
+    for (const [key, sentAt] of activationInterestNotifications) {
+      if (sentAt < expiry) activationInterestNotifications.delete(key);
+    }
+  }
+
+  try {
+    const eligibility = await getDomainEligibility(domain);
+    if (!eligibility.available || !eligibility.eligible || !eligibility.quote) {
+      return sendJson(response, 409, { error: "Dominio non attivabile direttamente." });
+    }
+    const quote = eligibility.quote;
+    const fiveYearEstimate = quote.firstYearPriceCents + quote.renewalPriceCents * 4;
+    const tenYearEstimate = quote.firstYearPriceCents + quote.renewalPriceCents * 9;
+    const restrictionDetails = eligibility.restriction
+      ? String(typeof eligibility.restriction === "string"
+        ? eligibility.restriction
+        : JSON.stringify(eligibility.restriction)).slice(0, 200)
+      : "nessuna";
+    const hostingerSearchUrl = hostingerDomainSearchUrl(domain);
+    await sendTelegramNotification("Cliente interessato all’attivazione dominio", [
+      `Dominio: ${domain}`,
+      "Cliente: non ancora identificato (verifica email non completata)",
+      `Primo anno Hostinger: ${formatDomainCatalogPrice(quote.firstYearPriceCents, quote.currency)}`,
+      `Rinnovo annuale Hostinger: ${formatDomainCatalogPrice(quote.renewalPriceCents, quote.currency)}`,
+      `Stima Hostinger 5 anni: ${formatDomainCatalogPrice(fiveYearEstimate, quote.currency)}`,
+      `Stima Hostinger 10 anni: ${formatDomainCatalogPrice(tenYearEstimate, quote.currency)}`,
+      "Pacchetto 5 anni: 360.00 EUR",
+      `Supplemento 5 anni: ${formatDomainSupplement(eligibility.supplements?.[5])}`,
+      "Pacchetto 10 anni: 690.00 EUR",
+      `Supplemento 10 anni: ${formatDomainSupplement(eligibility.supplements?.[10])}`,
+      `Requisiti Hostinger: ${restrictionDetails}`
+    ], {
+      actionLabel: `Controlla ${domain} su Hostinger`,
+      actionUrl: hostingerSearchUrl
+    });
+    activationInterestNotifications.set(notificationKey, Date.now());
+    return sendJson(response, 200, { ok: true });
+  } catch (error) {
+    console.error("Errore notifica interesse dominio:", error.message, error.cause || "");
+    return sendJson(response, 502, { error: "Notifica non inviata." });
+  }
 }
 
 async function handleDomainQuoteRequest(request, response) {
@@ -906,6 +997,39 @@ async function fetchRevolutOrder(revolutOrderId) {
   return JSON.parse(text);
 }
 
+async function sendDomainActivationConfirmation(order) {
+  if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY non configurata per la conferma ordine.");
+  const total = `${(Number(order.amount_cents) / 100).toFixed(2)} ${String(order.currency).toUpperCase()}`;
+  const subject = `Pagamento ricevuto per ${order.domain} - CRO Labs`;
+  const text = [
+    `Ciao ${order.contact_first_name},`,
+    "abbiamo ricevuto correttamente il pagamento per STAI SENZA PENSIER'.",
+    `Dominio: ${order.domain}`,
+    `Pacchetto: ${order.plan_years} anni`,
+    `Totale pagato: ${total}`,
+    `Riferimento ordine: ${order.id}`,
+    "La richiesta di attivazione è stata presa in carico. Ti contatteremo quando la registrazione del dominio sarà completata.",
+    "Questa email conferma il pagamento e la presa in carico; il dominio non è ancora da considerarsi attivo fino alla nostra conferma finale."
+  ].join("\n\n");
+  const html = [
+    `<h2>Pagamento ricevuto</h2>`,
+    `<p>Ciao ${escapeHtml(order.contact_first_name)}, abbiamo ricevuto correttamente il pagamento per <strong>STAI SENZA PENSIER'</strong>.</p>`,
+    `<p><strong>Dominio:</strong> ${escapeHtml(order.domain)}<br>`,
+    `<strong>Pacchetto:</strong> ${escapeHtml(String(order.plan_years))} anni<br>`,
+    `<strong>Totale pagato:</strong> ${escapeHtml(total)}<br>`,
+    `<strong>Riferimento ordine:</strong> ${escapeHtml(order.id)}</p>`,
+    `<p>La richiesta di attivazione è stata presa in carico. Ti contatteremo quando la registrazione del dominio sarà completata.</p>`,
+    `<p><small>Questa email conferma il pagamento e la presa in carico; il dominio non è ancora da considerarsi attivo fino alla nostra conferma finale.</small></p>`
+  ].join("");
+  const resendResponse = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: EMAIL_FROM, to: [order.email], subject, text, html }),
+    signal: AbortSignal.timeout(15000)
+  });
+  if (!resendResponse.ok) throw new Error(`Resend ${resendResponse.status}: ${await resendResponse.text()}`);
+}
+
 function localStatusForRevolutState(state) {
   if (state === "completed") return "completed";
   if (state === "cancelled") return "cancelled";
@@ -915,7 +1039,7 @@ function localStatusForRevolutState(state) {
 
 async function syncRevolutOrder(revolutOrderId) {
   const rows = await dbQuery(
-    "SELECT id, amount_cents, currency, status FROM domain_service_orders WHERE revolut_order_id = ? LIMIT 1",
+    "SELECT id, amount_cents, currency, status, domain, plan_years, contact_first_name, email FROM domain_service_orders WHERE revolut_order_id = ? LIMIT 1",
     [revolutOrderId]
   );
   const localOrder = rows[0];
@@ -928,6 +1052,9 @@ async function syncRevolutOrder(revolutOrderId) {
       String(revolutOrder.currency || "").toUpperCase() !== String(localOrder.currency).toUpperCase())
   ) {
     throw new Error(`Importo o valuta Revolut non corrispondenti per ordine ${localOrder.id}`);
+  }
+  if (nextStatus === "completed" && localOrder.status !== "completed") {
+    await sendDomainActivationConfirmation(localOrder);
   }
   await dbQuery("UPDATE domain_service_orders SET status = ? WHERE id = ?", [nextStatus, localOrder.id]);
   return { id: localOrder.id, status: nextStatus };
@@ -997,10 +1124,14 @@ async function handleDomainOrderStatus(request, response, url) {
   if (!/^[0-9a-f-]{36}$/i.test(orderId)) return sendJson(response, 400, { error: "Ordine non valido." });
   try {
     const rows = await dbQuery(
-      "SELECT status FROM domain_service_orders WHERE id = ? LIMIT 1",
+      "SELECT status, revolut_order_id FROM domain_service_orders WHERE id = ? LIMIT 1",
       [orderId]
     );
     if (!rows[0]) return sendJson(response, 404, { error: "Ordine non trovato." });
+    if ((rows[0].status === "pending" || rows[0].status === "draft") && rows[0].revolut_order_id) {
+      const synced = await syncRevolutOrder(rows[0].revolut_order_id);
+      return sendJson(response, 200, { status: synced?.status || rows[0].status });
+    }
     return sendJson(response, 200, { status: rows[0].status });
   } catch (error) {
     console.error("Errore stato ordine dominio:", error.message, error.cause || "");
@@ -1143,6 +1274,7 @@ const server = http.createServer(async (request, response) => {
   if (request.method === "POST" && url.pathname === "/api/telegram/webhook") return handleTelegramWebhook(request, response);
   if (request.method === "POST" && url.pathname === "/api/contact") return handleContact(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/check") return handleDomainCheck(request, response);
+  if (request.method === "POST" && url.pathname === "/api/domains/activation-interest") return handleDomainActivationInterest(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/whois") return handleDomainWhois(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/quote-request") return handleDomainQuoteRequest(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/activation/request-code") return handleDomainActivationRequest(request, response);

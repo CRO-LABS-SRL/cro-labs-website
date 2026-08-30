@@ -807,6 +807,16 @@
       let quoteSession = null;
       let quotePollTimer = null;
 
+      async function readApiJson(response) {
+        const responseText = await response.text();
+        try {
+          return responseText ? JSON.parse(responseText) : {};
+        } catch {
+          const status = response.status ? ` (HTTP ${response.status})` : "";
+          throw new Error(`Il server ha restituito una risposta non valida${status}. Riprova tra poco.`);
+        }
+      }
+
       const formatEur = (cents) => new Intl.NumberFormat("it-IT", {
         style: "currency",
         currency: "EUR",
@@ -822,6 +832,12 @@
       }
 
       function openActivationForm(domain, supplements) {
+        fetch("/api/domains/activation-interest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ domain }),
+          keepalive: true
+        }).catch(() => { /* La notifica non deve interrompere il percorso del cliente. */ });
         emailVerificationForm.reset();
         activationForm.reset();
         verificationId = null;
@@ -878,7 +894,7 @@
             "/api/chat/messages?session=" + encodeURIComponent(quoteSession.sessionId),
             { headers: { "X-Chat-Token": quoteSession.accessToken } }
           );
-          const result = await response.json();
+          const result = await readApiJson(response);
           if (!response.ok) throw new Error(result.error || "Conversazione non disponibile.");
           renderQuoteMessages(result.messages || []);
         } catch (error) {
@@ -898,7 +914,7 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
           });
-          const result = await response.json();
+          const result = await readApiJson(response);
           if (!response.ok || !result.sessionId || !result.accessToken) {
             throw new Error(result.error || "Invio non riuscito.");
           }
@@ -932,7 +948,7 @@
               message
             })
           });
-          const result = await response.json();
+          const result = await readApiJson(response);
           if (!response.ok) throw new Error(result.error || "Invio non riuscito.");
           quoteReplyForm.reset();
           quoteReplyStatus.textContent = "Messaggio inviato.";
@@ -956,7 +972,7 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ domain: activationDomain.value, email: verificationEmail.value.trim() })
           });
-          const result = await response.json();
+          const result = await readApiJson(response);
           if (!response.ok) throw new Error(result.error || "Invio del codice non riuscito.");
           verificationId = result.verificationId;
           codeRow.hidden = false;
@@ -989,7 +1005,7 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ verificationId, code: verificationCode.value.trim() })
           });
-          const result = await response.json();
+          const result = await readApiJson(response);
           if (!response.ok) throw new Error(result.error || "Codice non valido.");
           activationDomain.value = result.domain;
           activationToken.value = result.activationToken;
@@ -1114,7 +1130,7 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ domain: value })
           });
-          const result = await response.json();
+          const result = await readApiJson(response);
           if (!response.ok) throw new Error(result.error || "Verifica non riuscita.");
           if (!result.results || !result.results.length) {
             statusEl.textContent = "Nessun risultato per questo nome. Prova con un altro.";
@@ -1192,7 +1208,7 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
           });
-          const result = await response.json();
+          const result = await readApiJson(response);
           if (!response.ok || !result.checkoutUrl) {
             throw new Error(result.error || "Pagamento non disponibile.");
           }
@@ -1229,7 +1245,7 @@
           }
           try {
             const response = await fetch("/api/domains/order-status?order=" + encodeURIComponent(returnedOrderId));
-            const result = await response.json();
+            const result = await readApiJson(response);
             if (!response.ok) throw new Error(result.error || "Stato non disponibile.");
             stepDescription.textContent = statusMessages[result.status] || "Stato del pagamento in aggiornamento...";
             if ((result.status === "pending" || result.status === "draft") && attempt < 14) {
