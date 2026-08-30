@@ -394,6 +394,12 @@ function hasDomainRestriction(restriction) {
   return Boolean(restriction);
 }
 
+function isPremiumDomainRestriction(restriction) {
+  if (!hasDomainRestriction(restriction)) return false;
+  const details = typeof restriction === "string" ? restriction : JSON.stringify(restriction);
+  return /premium|aftermarket|high[\s_-]*value/i.test(details || "");
+}
+
 function annualDomainPriceForTld(items, tld) {
   const normalizedTld = String(tld || "").toLowerCase();
   const matchingItems = items.filter((item) => {
@@ -451,7 +457,7 @@ function evaluateDomainEligibility(isAvailable, restriction, quote) {
   const extra5CatalogCents = quote ? domainExtraCatalogCents(quote, 5) : null;
   const extra10CatalogCents = quote ? domainExtraCatalogCents(quote, 10) : null;
   if (!isAvailable) reason = "Dominio non disponibile.";
-  else if (hasDomainRestriction(restriction)) reason = "Dominio premium o soggetto a restrizioni: richiedi un preventivo personalizzato.";
+  else if (isPremiumDomainRestriction(restriction)) reason = "Dominio premium: richiedi un preventivo personalizzato.";
   else if (!quote) reason = "Questa estensione richiede una verifica manuale e non è acquistabile online.";
   else if (
     quote.firstYearPriceCents > DOMAIN_AUTO_EXTRA_MAX_ANNUAL_PRICE_CENTS ||

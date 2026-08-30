@@ -91,7 +91,10 @@ DOMAIN_EXTRA_MARGIN_PERCENT=30
 Fino a 30 USD/anno il dominio e incluso. Tra 30 e 60 USD/anno il server stima il costo per la durata
 scelta (`primo anno + rinnovo * anni restanti`), sottrae la quota gia inclusa e applica un margine
 del 30%; il supplemento viene arrotondato al dollaro superiore e aggiunto al totale Revolut. Oltre
-60 USD/anno, per domini premium/restricted o prezzi non verificabili viene proposto un preventivo.
+60 USD/anno, per domini premium o prezzi non verificabili viene proposto un preventivo. Il campo
+Hostinger `restriction` descrive anche normali requisiti amministrativi del TLD: per esempio `.it`
+richiede dati fiscali e anagrafici specifici. Queste indicazioni vengono mostrate come nota ma non
+fanno scattare il preventivo, salvo che la restrizione identifichi esplicitamente un dominio premium.
 Non viene eseguita alcuna conversione valutaria.
 
 Il controllo viene ripetuto sul server subito prima della creazione del checkout Revolut, quindi
