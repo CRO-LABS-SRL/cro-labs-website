@@ -175,7 +175,7 @@ async function findConversation(publicId, accessToken) {
   return rows[0] || null;
 }
 
-async function sendTelegramMessage(conversation, message, databaseMessageId) {
+async function sendTelegramMessage(conversation, message, databaseMessageId, options = {}) {
   if (!BOT_TOKEN || !CHAT_ID) return;
   const telegramText = [
     "<b>Nuovo messaggio dalla chat CRO Labs</b>",
@@ -185,10 +185,19 @@ async function sendTelegramMessage(conversation, message, databaseMessageId) {
     "", escapeHtml(message), "",
     "<i>Usa Rispondi su questo messaggio per rispondere al cliente sul sito.</i>"
   ].join("\n");
+  const telegramPayload = { chat_id: CHAT_ID, text: telegramText, parse_mode: "HTML" };
+  if (options.actionUrl && options.actionLabel) {
+    telegramPayload.reply_markup = {
+      inline_keyboard: [[{
+        text: String(options.actionLabel).slice(0, 64),
+        url: String(options.actionUrl)
+      }]]
+    };
+  }
   const telegramResponse = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: CHAT_ID, text: telegramText, parse_mode: "HTML" })
+    body: JSON.stringify(telegramPayload)
   });
   const telegramResult = await telegramResponse.json();
   if (!telegramResponse.ok || !telegramResult.ok) throw new Error(`Telegram: ${JSON.stringify(telegramResult)}`);
@@ -499,6 +508,12 @@ function formatDomainCatalogPrice(cents, currency) {
   return `${(Number(cents) / 100).toFixed(2)} ${currency}`;
 }
 
+function hostingerDomainSearchUrl(domain) {
+  const url = new URL("https://www.hostinger.com/domain-name-search");
+  url.searchParams.set("domain", domain);
+  return url.toString();
+}
+
 async function handleDomainQuoteRequest(request, response) {
   if (!databaseConfigured || !BOT_TOKEN || !CHAT_ID || !HOSTINGER_API) {
     return sendJson(response, 503, { error: "Richiesta preventivo momentaneamente non disponibile." });
@@ -537,6 +552,7 @@ async function handleDomainQuoteRequest(request, response) {
       ? (JSON.stringify(eligibility.restriction) || String(eligibility.restriction))
       : "nessuna informazione aggiuntiva";
     const restrictionDetails = rawRestrictionDetails.slice(0, 250);
+    const hostingerSearchUrl = hostingerDomainSearchUrl(domain);
     const telegramMessage = [
       "RICHIESTA PREVENTIVO DOMINIO",
       `Dominio: ${domain}`,
@@ -548,6 +564,7 @@ async function handleDomainQuoteRequest(request, response) {
       `Stima catalogo 10 anni: ${quote ? formatDomainCatalogPrice(tenYearEstimate, quote.currency) : "non disponibile"}`,
       `Voce catalogo Hostinger: ${quote?.itemId || "non disponibile"}`,
       `Restrizioni API: ${restrictionDetails}`,
+      `Controllo diretto Hostinger: ${hostingerSearchUrl}`,
       "Nota: per domini premium il prezzo del catalogo TLD potrebbe non essere il prezzo specifico finale.",
       note ? `Messaggio cliente: ${note}` : "Messaggio cliente: nessuna nota"
     ].join("\n").slice(0, 2000);
@@ -570,7 +587,11 @@ async function handleDomainQuoteRequest(request, response) {
     await sendTelegramMessage(
       { id: conversationId, public_id: publicId, name, email },
       telegramMessage,
-      saved.insertId
+      saved.insertId,
+      {
+        actionLabel: `Controlla ${domain} su Hostinger`,
+        actionUrl: hostingerSearchUrl
+      }
     );
     return sendJson(response, 201, { ok: true, sessionId: publicId, accessToken });
   } catch (error) {

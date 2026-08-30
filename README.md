@@ -118,8 +118,10 @@ browser, crea una normale conversazione nelle tabelle `chat_*` e invia il messag
 gia configurato con `TELEGRAM_BOT_TOKEN` e `TELEGRAM_CHAT_ID`.
 
 Il messaggio Telegram include dominio, recapiti, prezzo catalogo del primo anno, rinnovo, stime
-catalogo 5/10 anni, item ID e motivo del preventivo. Questi dati interni non vengono restituiti al
-browser: il cliente vede solo la propria richiesta. Rispondendo al messaggio con la funzione
+catalogo 5/10 anni, item ID, motivo del preventivo e un pulsante che apre la ricerca del dominio
+direttamente su Hostinger. Il link permette di controllare il prezzo mostrato da Hostinger anche
+quando il catalogo API non restituisce un importo utilizzabile. Questi dati interni non vengono
+restituiti al browser: il cliente vede solo la propria richiesta. Rispondendo al messaggio con la funzione
 **Rispondi** di Telegram, la risposta appare nella conversazione inline della pagina, aggiornata
 ogni 3 secondi. Per un dominio premium il prezzo TLD viene segnalato come indicativo, perche potrebbe
 non coincidere con il prezzo specifico finale del nome.
