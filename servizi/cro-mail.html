@@ -107,6 +107,8 @@
       border-radius: 999px;
       border: 1px solid transparent;
       font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
       transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
     }
     .button:hover { transform: translateY(-2px); }
@@ -399,7 +401,7 @@
       <h2>La tua attività merita un'email professionale.</h2>
       <div class="hero-actions">
         <a class="button button-primary" href="mailto:info@cro-labs.it?subject=Richiesta%20informazioni%20CRO%20LABS%20MAIL">info@cro-labs.it</a>
-        <a class="button button-secondary" href="tel:+393281156475">+39 328 115 6475</a>
+        <button class="button button-secondary" type="button" data-phone-reveal>Mostra numero</button>
       </div>
       <p class="fineprint">Documento informativo commerciale. Caratteristiche, limiti e condizioni definitive sono quelle riportate nell'ordine e nelle condizioni del servizio.</p>
     </section>
@@ -410,5 +412,6 @@
       <a href="/">&larr; Torna al sito CRO Labs</a>
     </footer>
   </main>
+  <script src="/phone-protection.js" defer></script>
 </body>
 </html>

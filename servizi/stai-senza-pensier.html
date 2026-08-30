@@ -107,6 +107,8 @@
       border-radius: 999px;
       border: 1px solid transparent;
       font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
       transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
     }
     .button:hover { transform: translateY(-2px); }
@@ -749,7 +751,7 @@
       <h2>Tu pensa al tuo business. Al resto pensiamo noi.</h2>
       <div class="hero-actions">
         <a class="button button-primary" href="mailto:info@cro-labs.it?subject=Richiesta%20informazioni%20STAI%20SENZA%20PENSIER">info@cro-labs.it</a>
-        <a class="button button-secondary" href="tel:+393281156475">+39 328 115 6475</a>
+        <button class="button button-secondary" type="button" data-phone-reveal>Mostra numero</button>
       </div>
       <p class="fineprint">Documento informativo commerciale. Le caratteristiche definitive del servizio sono quelle indicate nell'ordine e nelle Condizioni Generali applicabili.</p>
     </section>
@@ -761,6 +763,7 @@
     </footer>
   </main>
 
+  <script src="/phone-protection.js" defer></script>
   <script>
     (function () {
       const form = document.getElementById("domain-form");

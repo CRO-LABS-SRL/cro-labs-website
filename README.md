@@ -35,9 +35,21 @@ Variabili d'ambiente da impostare:
 - `RESEND_API_KEY`: chiave API creata su Resend
 - `CONTACT_TO_EMAIL`: indirizzo che ricevera i messaggi del modulo contatti
 - `EMAIL_FROM`: mittente verificato, ad esempio `CRO Labs <contatti@tuodominio.it>`
+- `CONTACT_PHONE`: numero da mostrare dopo la verifica, in formato internazionale (es. `+39...`)
+- `TURNSTILE_SITE_KEY`: chiave pubblica del widget Cloudflare Turnstile
+- `TURNSTILE_SECRET_KEY`: chiave segreta Turnstile, da conservare solo sul server
+- `TURNSTILE_EXPECTED_HOSTNAME`: hostname autorizzato restituito da Turnstile (consigliato, es. `cro-labs.it`)
 - `HOSTINGER_API`: token API Hostinger (Bearer) per la verifica disponibilita dominio nella pagina STAI SENZA PENSIER'
 
 Non inserire mai il token direttamente in `index.html` e non salvarlo nel repository.
+
+## Protezione del numero di telefono
+
+I pulsanti **Mostra numero** caricano Cloudflare Turnstile solo al clic. Il browser invia il token
+al server tramite `POST /api/phone/reveal`; il server lo verifica con Siteverify e restituisce il
+numero soltanto dopo una verifica valida. L'endpoint consente al massimo 5 tentativi ogni 10 minuti
+per indirizzo IP. Senza `CONTACT_PHONE`, `TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` la funzione
+resta chiusa e non espone il numero. Nel pannello Turnstile autorizzare il dominio pubblico del sito.
 
 Per ricavare il Chat ID, inviare prima un messaggio al bot e aprire nel browser:
 

@@ -75,6 +75,8 @@
       border-radius: 999px;
       border: 1px solid transparent;
       font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
       transition: transform 180ms ease, border-color 180ms ease;
     }
     .button:hover { transform: translateY(-2px); }
@@ -291,12 +293,13 @@
       <p>Partiamo dal problema da risolvere e costruiamo insieme il perimetro del progetto. Per i lavori strutturati il pagamento può essere suddiviso per fasi, con condizioni definite nel preventivo.</p>
       <div class="hero-actions">
         <a class="button button-primary" href="mailto:info@cro-labs.it?subject=Richiesta%20preventivo%20CRO%20APP%20%26%20SOFTWARE">Richiedi un confronto</a>
-        <a class="button button-secondary" href="tel:+393281156475">Chiama +39 328 115 6475</a>
+        <button class="button button-secondary" type="button" data-phone-reveal>Mostra numero</button>
       </div>
       <p class="fineprint">Prezzi, tempi e funzionalità sono indicativi. Servizi e costi di terzi sono esclusi salvo diversa indicazione.</p>
     </section>
 
     <footer>CRO Labs S.r.l. &mdash; P.IVA 11118861217 &middot; info@cro-labs.it</footer>
   </main>
+  <script src="/phone-protection.js" defer></script>
 </body>
 </html>

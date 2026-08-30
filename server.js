@@ -31,6 +31,10 @@ const databaseConfigured = Boolean(MYSQL_USER && MYSQL_PASSWORD && MYSQL_DATABAS
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL;
 const EMAIL_FROM = process.env.EMAIL_FROM || "CRO Labs <onboarding@resend.dev>";
+const CONTACT_PHONE = String(process.env.CONTACT_PHONE || "").trim();
+const TURNSTILE_SITE_KEY = String(process.env.TURNSTILE_SITE_KEY || "").trim();
+const TURNSTILE_SECRET_KEY = String(process.env.TURNSTILE_SECRET_KEY || "").trim();
+const TURNSTILE_EXPECTED_HOSTNAME = String(process.env.TURNSTILE_EXPECTED_HOSTNAME || "").trim().toLowerCase();
 const HOSTINGER_API = process.env.HOSTINGER_API || process.env.HOSTINGER_API_TOKEN;
 const DOMAIN_PRICE_CURRENCY = "USD";
 const DOMAIN_CHECKOUT_CURRENCY = "EUR";
@@ -63,6 +67,7 @@ const PUBLIC_BASE_URL = String(process.env.PUBLIC_BASE_URL || "").replace(/\/$/,
 const DOMAIN_DEFAULT_TLDS = ["it", "com", "net", "eu"];
 const indexPath = path.join(__dirname, "index.html");
 const serviziDir = path.join(__dirname, "servizi");
+const phoneProtectionScriptPath = path.join(__dirname, "phone-protection.js");
 const attempts = new Map();
 const activationInterestNotifications = new Map();
 const completedOrderNotificationJobs = new Map();
@@ -123,7 +128,81 @@ function isRateLimited(key, limit = 10) {
 }
 
 function requestIp(request) {
-  return String(request.headers["x-forwarded-for"] || request.socket.remoteAddress || "unknown").split(",")[0].trim();
+  return String(
+    request.headers["cf-connecting-ip"] ||
+    request.headers["x-forwarded-for"] ||
+    request.socket.remoteAddress ||
+    "unknown"
+  ).split(",")[0].trim();
+}
+
+function phoneProtectionConfigured() {
+  return Boolean(CONTACT_PHONE && TURNSTILE_SITE_KEY && TURNSTILE_SECRET_KEY);
+}
+
+function formatContactPhone(phone) {
+  const compact = phone.replace(/[\s().-]/g, "");
+  const italianMobile = compact.match(/^\+39(\d{3})(\d{3})(\d{4})$/);
+  if (italianMobile) return `+39 ${italianMobile[1]} ${italianMobile[2]} ${italianMobile[3]}`;
+  return phone;
+}
+
+async function verifyTurnstileToken(token, ip) {
+  const verification = new URLSearchParams({
+    secret: TURNSTILE_SECRET_KEY,
+    response: token,
+    remoteip: ip
+  });
+  const turnstileResponse = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: verification,
+    signal: AbortSignal.timeout(8000)
+  });
+  if (!turnstileResponse.ok) throw new Error(`Turnstile HTTP ${turnstileResponse.status}`);
+  const result = await turnstileResponse.json();
+  if (!result.success || result.action !== "phone_reveal") return false;
+  return !TURNSTILE_EXPECTED_HOSTNAME || String(result.hostname || "").toLowerCase() === TURNSTILE_EXPECTED_HOSTNAME;
+}
+
+function handlePhoneConfig(response) {
+  if (!phoneProtectionConfigured()) {
+    return sendJson(response, 503, { error: "Numero momentaneamente non disponibile." });
+  }
+  return sendJson(response, 200, { siteKey: TURNSTILE_SITE_KEY });
+}
+
+async function handlePhoneReveal(request, response) {
+  if (!phoneProtectionConfigured()) {
+    return sendJson(response, 503, { error: "Numero momentaneamente non disponibile." });
+  }
+  const ip = requestIp(request);
+  if (isRateLimited(`phone-reveal:${ip}`, 5)) {
+    return sendJson(response, 429, { error: "Troppe richieste. Riprova tra qualche minuto." });
+  }
+  const body = await readJsonBody(request, response);
+  if (!body) return;
+  const token = typeof body.token === "string" ? body.token.trim() : "";
+  if (!token || token.length > 2048) {
+    return sendJson(response, 400, { error: "Verifica di sicurezza non valida." });
+  }
+  try {
+    if (!await verifyTurnstileToken(token, ip)) {
+      return sendJson(response, 403, { error: "Verifica di sicurezza non riuscita. Riprova." });
+    }
+    const compactPhone = CONTACT_PHONE.replace(/[\s().-]/g, "");
+    if (!/^\+?[0-9]{7,15}$/.test(compactPhone)) {
+      console.error("CONTACT_PHONE non contiene un numero valido.");
+      return sendJson(response, 503, { error: "Numero momentaneamente non disponibile." });
+    }
+    return sendJson(response, 200, {
+      display: formatContactPhone(CONTACT_PHONE),
+      href: `tel:${compactPhone}`
+    });
+  } catch (error) {
+    console.error("Errore verifica Turnstile:", error.message, error.cause || "");
+    return sendJson(response, 502, { error: "Verifica di sicurezza non disponibile. Riprova tra poco." });
+  }
 }
 
 async function readJsonBody(request, response) {
@@ -1374,6 +1453,8 @@ const server = http.createServer(async (request, response) => {
   if (request.method === "GET" && url.pathname === "/api/chat/messages") return handleChatMessages(request, response, url);
   if (request.method === "POST" && url.pathname === "/api/telegram/webhook") return handleTelegramWebhook(request, response);
   if (request.method === "POST" && url.pathname === "/api/contact") return handleContact(request, response);
+  if (request.method === "GET" && url.pathname === "/api/phone/config") return handlePhoneConfig(response);
+  if (request.method === "POST" && url.pathname === "/api/phone/reveal") return handlePhoneReveal(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/check") return handleDomainCheck(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/activation-interest") return handleDomainActivationInterest(request, response);
   if (request.method === "POST" && url.pathname === "/api/domains/whois") return handleDomainWhois(request, response);
@@ -1386,6 +1467,13 @@ const server = http.createServer(async (request, response) => {
   if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     return fs.createReadStream(indexPath).pipe(response);
+  }
+  if (request.method === "GET" && url.pathname === "/phone-protection.js") {
+    response.writeHead(200, {
+      "Content-Type": "text/javascript; charset=utf-8",
+      "Cache-Control": "public, max-age=3600"
+    });
+    return fs.createReadStream(phoneProtectionScriptPath).pipe(response);
   }
   if (request.method === "GET" && (url.pathname === "/servizi" || url.pathname.startsWith("/servizi/"))) {
     return serveServiziPage(response, url.pathname);
@@ -1417,4 +1505,5 @@ server.listen(PORT, () => {
   console.log(`Dominio incluso fino a ${(DOMAIN_MAX_ANNUAL_PRICE_CENTS / 100).toFixed(2)} ${DOMAIN_PRICE_CURRENCY}/anno; extra automatico fino a ${(DOMAIN_AUTO_EXTRA_MAX_ANNUAL_PRICE_CENTS / 100).toFixed(2)}`);
   console.log(`Checkout Revolut: ${REVOLUT_SECRET_KEY ? `attivo (${REVOLUT_ENV})` : "DISATTIVO (manca REVOLUT_SECRET_KEY)"}`);
   console.log(`Webhook Revolut: ${REVOLUT_WEBHOOK_SECRET ? "attivo" : "DISATTIVO (manca REVOLUT_WEBHOOK_SECRET)"}`);
+  console.log(`Protezione telefono: ${phoneProtectionConfigured() ? "attiva" : "DISATTIVA (configura CONTACT_PHONE e Turnstile)"}`);
 });
