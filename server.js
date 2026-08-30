@@ -32,8 +32,8 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL;
 const EMAIL_FROM = process.env.EMAIL_FROM || "CRO Labs <onboarding@resend.dev>";
 const HOSTINGER_API = process.env.HOSTINGER_API || process.env.HOSTINGER_API_TOKEN;
-const configuredDomainCurrency = String(process.env.DOMAIN_PRICE_CURRENCY || "EUR").toUpperCase();
-const DOMAIN_PRICE_CURRENCY = /^[A-Z]{3}$/.test(configuredDomainCurrency) ? configuredDomainCurrency : "EUR";
+const configuredDomainCurrency = String(process.env.DOMAIN_PRICE_CURRENCY || "USD").toUpperCase();
+const DOMAIN_PRICE_CURRENCY = /^[A-Z]{3}$/.test(configuredDomainCurrency) ? configuredDomainCurrency : "USD";
 const configuredDomainPriceLimit = Number(process.env.DOMAIN_MAX_ANNUAL_PRICE_CENTS);
 const DOMAIN_MAX_ANNUAL_PRICE_CENTS = Number.isSafeInteger(configuredDomainPriceLimit) && configuredDomainPriceLimit > 0
   ? configuredDomainPriceLimit
@@ -49,9 +49,9 @@ const DOMAIN_EXTRA_MARGIN_PERCENT = Number.isFinite(configuredDomainExtraMargin)
   ? configuredDomainExtraMargin
   : 30;
 const configuredDomainToEurRate = Number(process.env.DOMAIN_PRICE_TO_EUR_RATE);
-const DOMAIN_PRICE_TO_EUR_RATE = DOMAIN_PRICE_CURRENCY === "EUR"
-  ? 1
-  : (Number.isFinite(configuredDomainToEurRate) && configuredDomainToEurRate > 0 ? configuredDomainToEurRate : null);
+const DOMAIN_PRICE_TO_EUR_RATE = Number.isFinite(configuredDomainToEurRate) && configuredDomainToEurRate > 0
+  ? configuredDomainToEurRate
+  : null;
 const REVOLUT_SECRET_KEY = process.env.REVOLUT_SECRET_KEY;
 const REVOLUT_WEBHOOK_SECRET = process.env.REVOLUT_WEBHOOK_SECRET;
 const REVOLUT_ENV = String(process.env.REVOLUT_ENV || "sandbox").toLowerCase();
@@ -362,14 +362,19 @@ function isValidFullDomain(domain) {
   return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z]{2,63})+$/.test(domain);
 }
 
-const hostingerCatalogCache = { at: 0, items: null };
+const hostingerCatalogCache = new Map();
 const HOSTINGER_CATALOG_TTL_MS = 60 * 60 * 1000;
 
-async function fetchHostingerDomainCatalog() {
-  if (hostingerCatalogCache.items && Date.now() - hostingerCatalogCache.at < HOSTINGER_CATALOG_TTL_MS) {
-    return hostingerCatalogCache.items;
+async function fetchHostingerDomainCatalog(tld) {
+  const normalizedTld = String(tld || "").trim().toLowerCase();
+  const cached = hostingerCatalogCache.get(normalizedTld);
+  if (cached && Date.now() - cached.at < HOSTINGER_CATALOG_TTL_MS) {
+    return cached.items;
   }
-  const catalogResponse = await fetch("https://developers.hostinger.com/api/billing/v1/catalog?category=DOMAIN", {
+  const catalogUrl = new URL("https://developers.hostinger.com/api/billing/v1/catalog");
+  catalogUrl.searchParams.set("category", "DOMAIN");
+  catalogUrl.searchParams.set("name", `.${normalizedTld.toUpperCase()}*`);
+  const catalogResponse = await fetch(catalogUrl, {
     headers: {
       "Authorization": `Bearer ${HOSTINGER_API}`,
       "Accept": "application/json"
@@ -381,9 +386,16 @@ async function fetchHostingerDomainCatalog() {
   }
   const payload = await catalogResponse.json();
   const items = Array.isArray(payload) ? payload : (payload.data || []);
-  hostingerCatalogCache.at = Date.now();
-  hostingerCatalogCache.items = items;
+  hostingerCatalogCache.set(normalizedTld, { at: Date.now(), items });
   return items;
+}
+
+function hasDomainRestriction(restriction) {
+  if (restriction === null || restriction === undefined || restriction === false) return false;
+  if (typeof restriction === "string") return restriction.trim().length > 0;
+  if (Array.isArray(restriction)) return restriction.length > 0;
+  if (typeof restriction === "object") return Object.keys(restriction).length > 0;
+  return Boolean(restriction);
 }
 
 function annualDomainPriceForTld(items, tld) {
@@ -392,25 +404,35 @@ function annualDomainPriceForTld(items, tld) {
     const id = String(item.id || "").toLowerCase();
     const name = String(item.name || "").toLowerCase();
     return String(item.category || "").toUpperCase() === "DOMAIN" &&
-      (id.includes(`-domain-${normalizedTld}-`) || name === `.${normalizedTld}` || name.startsWith(`.${normalizedTld} `));
+      (id.includes(`-domain-${normalizedTld}-`) || id.endsWith(`-domain-${normalizedTld}`) ||
+        name === `.${normalizedTld}` || name.startsWith(`.${normalizedTld} `));
   });
   const prices = matchingItems.flatMap((item) => (Array.isArray(item.prices) ? item.prices : []).map((price) => ({
     ...price,
     catalogItemId: item.id
   })));
-  const annualPrices = prices.filter((price) => {
+  const oneYearPrices = prices.filter((price) => {
     const id = String(price.id || "").toLowerCase();
     const unit = String(price.period_unit || "").toLowerCase();
-    return String(price.currency || "").toUpperCase() === DOMAIN_PRICE_CURRENCY &&
+    return Number.isFinite(Number(price.price)) &&
       Number(price.period) === 1 && (unit.startsWith("year") || id.endsWith("-1y"));
   });
+  const preferredCurrencyPrices = oneYearPrices.filter(
+    (price) => String(price.currency || "").toUpperCase() === DOMAIN_PRICE_CURRENCY
+  );
+  const usdPrices = oneYearPrices.filter(
+    (price) => String(price.currency || "").toUpperCase() === "USD"
+  );
+  // Alcuni account Hostinger espongono il catalogo domini solo in USD. Se la valuta
+  // preferita non esiste, usare USD evita di classificare il dominio come "senza prezzo".
+  const annualPrices = preferredCurrencyPrices.length ? preferredCurrencyPrices : usdPrices;
   if (!annualPrices.length) return null;
   annualPrices.sort((a, b) => Number(a.price) - Number(b.price));
   const selected = annualPrices[0];
   return {
     itemId: selected.id,
     catalogItemId: selected.catalogItemId,
-    currency: DOMAIN_PRICE_CURRENCY,
+    currency: String(selected.currency || "USD").toUpperCase(),
     firstYearPriceCents: Number(selected.first_period_price ?? selected.price),
     renewalPriceCents: Number(selected.price),
     maxAnnualPriceCents: DOMAIN_MAX_ANNUAL_PRICE_CENTS
@@ -427,9 +449,10 @@ function domainExtraCatalogCents(quote, planYears) {
 
 function domainSupplementForPlan(quote, planYears) {
   const differenceCatalogCents = domainExtraCatalogCents(quote, planYears);
-  if (differenceCatalogCents === null || (differenceCatalogCents > 0 && !DOMAIN_PRICE_TO_EUR_RATE)) return null;
+  const conversionRate = quote?.currency === "EUR" ? 1 : DOMAIN_PRICE_TO_EUR_RATE;
+  if (differenceCatalogCents === null || (differenceCatalogCents > 0 && !conversionRate)) return null;
   if (differenceCatalogCents === 0) return 0;
-  const differenceEurCents = differenceCatalogCents * DOMAIN_PRICE_TO_EUR_RATE;
+  const differenceEurCents = differenceCatalogCents * conversionRate;
   const withMargin = differenceEurCents * (1 + DOMAIN_EXTRA_MARGIN_PERCENT / 100);
   return Math.ceil(withMargin / 100) * 100;
 }
@@ -439,15 +462,16 @@ function evaluateDomainEligibility(isAvailable, restriction, quote) {
   const extra5CatalogCents = quote ? domainExtraCatalogCents(quote, 5) : null;
   const extra10CatalogCents = quote ? domainExtraCatalogCents(quote, 10) : null;
   const needsCurrencyConversion = extra5CatalogCents > 0 || extra10CatalogCents > 0;
+  const conversionRate = quote?.currency === "EUR" ? 1 : DOMAIN_PRICE_TO_EUR_RATE;
   if (!isAvailable) reason = "Dominio non disponibile.";
-  else if (restriction) reason = "Dominio premium o soggetto a restrizioni: richiedi un preventivo personalizzato.";
+  else if (hasDomainRestriction(restriction)) reason = "Dominio premium o soggetto a restrizioni: richiedi un preventivo personalizzato.";
   else if (!quote) reason = "Questa estensione richiede una verifica manuale e non è acquistabile online.";
   else if (
     quote.firstYearPriceCents > DOMAIN_AUTO_EXTRA_MAX_ANNUAL_PRICE_CENTS ||
     quote.renewalPriceCents > DOMAIN_AUTO_EXTRA_MAX_ANNUAL_PRICE_CENTS
   ) reason = "Dominio ad alto costo: richiedi un preventivo personalizzato.";
-  else if (needsCurrencyConversion && !DOMAIN_PRICE_TO_EUR_RATE) {
-    reason = `Conversione ${DOMAIN_PRICE_CURRENCY}/EUR non configurata: richiedi un preventivo personalizzato.`;
+  else if (needsCurrencyConversion && !conversionRate) {
+    reason = `Conversione ${quote.currency}/EUR non configurata: richiedi un preventivo personalizzato.`;
   }
   const supplements = !reason && quote ? {
     5: domainSupplementForPlan(quote, 5),
@@ -489,8 +513,9 @@ async function getDomainEligibility(domain, availabilityItem = null) {
     availability = rows.find((item) => String(item.domain || "").toLowerCase() === domain) || rows[0];
   }
   const isAvailable = Boolean(availability?.is_available ?? availability?.isAvailable);
-  const restriction = availability?.restriction || null;
-  const quote = annualDomainPriceForTld(await fetchHostingerDomainCatalog(), tld);
+  const rawRestriction = availability?.restriction;
+  const restriction = hasDomainRestriction(rawRestriction) ? rawRestriction : null;
+  const quote = annualDomainPriceForTld(await fetchHostingerDomainCatalog(tld), tld);
   return {
     ...evaluateDomainEligibility(isAvailable, restriction, quote),
     available: isAvailable,
@@ -1007,14 +1032,21 @@ async function handleDomainCheck(request, response) {
   }
   try {
     const rows = await fetchHostingerAvailability(label, tlds.slice(0, 5));
-    const catalog = await fetchHostingerDomainCatalog();
+    const availableTlds = [...new Set(rows
+      .filter((item) => Boolean(item.is_available ?? item.isAvailable))
+      .map((item) => String(item.domain || "").toLowerCase().split(".").pop())
+      .filter(Boolean))];
+    const catalogs = new Map(await Promise.all(availableTlds.map(async (tld) => [
+      tld,
+      await fetchHostingerDomainCatalog(tld)
+    ])));
     const results = rows
       .map((item, index) => {
         const domain = String(item.domain || `${label}.${tlds[index] || ""}`).toLowerCase();
         const tld = domain.split(".").pop();
         const available = Boolean(item.is_available ?? item.isAvailable);
-        const restriction = item.restriction || null;
-        const quote = available ? annualDomainPriceForTld(catalog, tld) : null;
+        const restriction = hasDomainRestriction(item.restriction) ? item.restriction : null;
+        const quote = available ? annualDomainPriceForTld(catalogs.get(tld) || [], tld) : null;
         const eligibility = evaluateDomainEligibility(available, restriction, quote);
         return {
           domain,
