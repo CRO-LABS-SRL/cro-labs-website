@@ -101,6 +101,9 @@ function serveAsset(response, pathname) {
   const filePath = path.normalize(path.join(assetsDir, relative));
   const mimeTypes = {
     ".css": "text/css; charset=utf-8",
+    ".jpeg": "image/jpeg",
+    ".jpg": "image/jpeg",
+    ".png": "image/png",
     ".woff2": "font/woff2",
     ".txt": "text/plain; charset=utf-8"
   };
@@ -111,10 +114,10 @@ function serveAsset(response, pathname) {
   const stream = fs.createReadStream(filePath);
   stream.once("error", () => sendJson(response, 404, { error: "Risorsa non trovata." }));
   stream.once("open", () => {
-    const isFont = filePath.endsWith(".woff2");
+    const isLongLivedAsset = /\.(?:woff2|jpe?g|png)$/i.test(filePath);
     response.writeHead(200, {
       "Content-Type": contentType,
-      "Cache-Control": isFont ? "public, max-age=31536000, immutable" : "public, max-age=3600"
+      "Cache-Control": isLongLivedAsset ? "public, max-age=31536000, immutable" : "public, max-age=3600"
     });
     stream.pipe(response);
   });
