@@ -55,7 +55,8 @@ I pulsanti **Mostra numero** caricano Cloudflare Turnstile solo al clic. Il brow
 al server tramite `POST /api/phone/reveal`; il server lo verifica con Siteverify e restituisce il
 numero soltanto dopo una verifica valida. L'endpoint consente al massimo 5 tentativi ogni 10 minuti
 per indirizzo IP. Senza `CONTACT_PHONE`, `TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` la funzione
-resta chiusa e non espone il numero. Nel pannello Turnstile autorizzare il dominio pubblico del sito.
+resta chiusa. Il numero è comunque accessibile tramite il collegamento WhatsApp della chat quando
+`CONTACT_PHONE` è valido. Nel pannello Turnstile autorizzare il dominio pubblico del sito.
 
 ## Privacy, cookie e font locali
 
@@ -267,3 +268,15 @@ Il modulo contatti usa `/api/contact`, quindi non abbandona piu il sito dopo l'i
 Per usare un indirizzo CRO Labs come mittente, verificare prima il dominio nella dashboard Resend e impostare `EMAIL_FROM` con un indirizzo di quel dominio.
 
 Durante i primi test si puo omettere `EMAIL_FROM`: verra usato `CRO Labs <onboarding@resend.dev>`. Con il dominio di prova Resend, l'indirizzo destinatario puo essere soggetto alle limitazioni previste dall'account.
+
+## Scelta del canale chat
+
+Il widget condiviso tra home, servizi e pagina privacy propone Telegram (conversazione sul sito)
+e WhatsApp (link esterno aperto in una nuova scheda/app). “Cambia canale” torna alla scelta senza
+cancellare messaggi o bozze della chat sul sito.
+
+Il widget usa `CONTACT_PHONE` con il numero WhatsApp completo di prefisso internazionale, ad esempio
+`+39…`. `GET /api/chat/channels` restituisce il link pubblico `wa.me`; senza un numero valido
+WhatsApp resta disabilitato con un messaggio, mentre Telegram continua a funzionare.
+Il link WhatsApp rende il numero pubblico attraverso questo endpoint. Il flusso “Mostra numero”
+continua a richiedere Turnstile.

@@ -32,6 +32,7 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL;
 const EMAIL_FROM = process.env.EMAIL_FROM || "CRO Labs <onboarding@resend.dev>";
 const CONTACT_PHONE = String(process.env.CONTACT_PHONE || "").trim();
+const WHATSAPP_PHONE = CONTACT_PHONE.replace(/[\s().-]/g, "").replace(/^\+/, "");
 const TURNSTILE_SITE_KEY = String(process.env.TURNSTILE_SITE_KEY || "").trim();
 const TURNSTILE_SECRET_KEY = String(process.env.TURNSTILE_SECRET_KEY || "").trim();
 const TURNSTILE_EXPECTED_HOSTNAME = String(process.env.TURNSTILE_EXPECTED_HOSTNAME || "").trim().toLowerCase();
@@ -1480,6 +1481,11 @@ async function handleDomainWhois(request, response) {
 
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host || "localhost"}`);
+  if (request.method === "GET" && url.pathname === "/api/chat/channels") {
+    return sendJson(response, 200, {
+      whatsappUrl: /^[1-9][0-9]{6,14}$/.test(WHATSAPP_PHONE) ? `https://wa.me/${WHATSAPP_PHONE}` : null
+    });
+  }
   if (request.method === "POST" && url.pathname === "/api/chat/session") return handleStartChat(request, response);
   if (request.method === "POST" && url.pathname === "/api/chat/message") return handleChatMessage(request, response);
   if (request.method === "GET" && url.pathname === "/api/chat/messages") return handleChatMessages(request, response, url);

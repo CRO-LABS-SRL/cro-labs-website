@@ -7,18 +7,29 @@
     <button class="chat-launcher" id="chat-launcher" type="button" aria-label="Apri la chat" aria-controls="chat-panel" aria-expanded="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
     </button>
-    <aside class="chat-panel" id="chat-panel" aria-label="Contatta CRO Labs tramite Telegram" aria-hidden="true">
+    <aside class="chat-panel" id="chat-panel" aria-label="Contatta CRO Labs" aria-hidden="true">
       <div class="chat-header">
         <div>
           <strong>Scrivi a CRO Labs</strong>
-          <span class="chat-channel">
+          <span class="chat-channel" id="chat-channel" hidden>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.9 2.6 18.6 21c-.2 1.3-1 1.6-2 1l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.4-5.1 9.3-8.4c.4-.4-.1-.6-.6-.2L5.8 14.6l-5-1.6c-1.1-.3-1.1-1.1.2-1.6L20.5 2c.9-.3 1.7.2 1.4.6z"/></svg>
             Messaggi ricevuti su Telegram
           </span>
         </div>
         <button class="chat-close" id="chat-close" type="button" aria-label="Chiudi la chat">&times;</button>
       </div>
-      <div class="chat-body" id="chat-body">
+      <div class="chat-choices" id="chat-choices">
+        <p>Come preferisci contattarci?</p>
+        <button class="chat-choice is-telegram" id="chat-telegram" type="button">
+          <strong>Telegram</strong><span>Chatta qui sul sito, senza aprire altre app</span>
+        </button>
+        <a class="chat-choice is-whatsapp" id="chat-whatsapp" target="_blank" rel="noopener noreferrer" aria-disabled="true">
+          <strong>WhatsApp ↗</strong><span>Apri la conversazione su WhatsApp</span>
+        </a>
+        <p class="chat-status" id="chat-choice-status" role="status" aria-live="polite"></p>
+      </div>
+      <div class="chat-body" id="chat-body" hidden>
+        <button class="chat-back" id="chat-back" type="button">← Cambia canale</button>
         <p class="chat-welcome">Ciao! Il tuo messaggio arriva subito al nostro team su Telegram. Puoi leggere la risposta direttamente qui.</p>
         <form class="chat-form" id="chat-form">
           <input type="text" name="name" placeholder="Il tuo nome" maxlength="80" autocomplete="name" required>
@@ -51,6 +62,50 @@
   const thread = document.getElementById("chat-thread");
   const messageForm = document.getElementById("chat-message-form");
   const conversationStatus = document.getElementById("chat-conversation-status");
+  const choices = document.getElementById("chat-choices");
+  const telegramButton = document.getElementById("chat-telegram");
+  const whatsappLink = document.getElementById("chat-whatsapp");
+  const choiceStatus = document.getElementById("chat-choice-status");
+  const channel = document.getElementById("chat-channel");
+  let selectedChannel = null;
+
+  async function loadChannels() {
+    choiceStatus.textContent = "Caricamento canali…";
+    try {
+      const response = await fetch("/api/chat/channels");
+      const result = await readApiJson(response);
+      if (!response.ok) throw new Error();
+      if (!result.whatsappUrl) {
+        choiceStatus.textContent = "WhatsApp non è ancora disponibile. Puoi scriverci qui con Telegram.";
+        return;
+      }
+      const url = new URL(result.whatsappUrl);
+      if (url.origin !== "https://wa.me" || !/^\/[1-9][0-9]{6,14}$/.test(url.pathname)) throw new Error();
+      whatsappLink.href = url.href;
+      whatsappLink.removeAttribute("aria-disabled");
+      choiceStatus.textContent = "";
+    } catch {
+      choiceStatus.textContent = "WhatsApp momentaneamente non disponibile. Riapri il pannello per riprovare.";
+    }
+  }
+
+  function selectChannel(telegram, focus = true) {
+    selectedChannel = telegram ? "telegram" : null;
+    choices.hidden = telegram;
+    body.hidden = !telegram;
+    channel.hidden = !telegram;
+    if (focus) (telegram ? (session ? messageForm.elements.message : form.elements.name) : telegramButton).focus();
+  }
+
+  telegramButton.addEventListener("click", () => {
+    if (session) { showConversation(); refreshChat(); }
+    selectChannel(true);
+  });
+  document.getElementById("chat-back").addEventListener("click", () => selectChannel(false));
+  whatsappLink.addEventListener("click", (event) => {
+    if (!whatsappLink.hasAttribute("href")) event.preventDefault();
+  });
+
   const storageKey = "croLabsChatSession";
   const openStorageKey = "croLabsChatOpen";
   let session = null;
@@ -97,6 +152,9 @@
       if (response.status === 401) {
         localStorage.removeItem(storageKey);
         session = null;
+        body.classList.remove("is-conversation");
+        conversation.hidden = true;
+        renderedMessageIds = "";
         return;
       }
       if (!response.ok) throw new Error(result.error || "Chat non disponibile.");
@@ -115,14 +173,13 @@
     panel.setAttribute("aria-hidden", String(!open));
     launcher.setAttribute("aria-expanded", String(open));
     sessionStorage.setItem(openStorageKey, String(open));
-    if (!open) return;
-    if (session) {
-      showConversation();
-      refreshChat();
-      if (focus) messageForm.elements.message.focus();
-    } else if (focus) {
-      form.elements.name.focus();
+    if (!open) {
+      if (focus) launcher.focus();
+      return;
     }
+    if (!whatsappLink.hasAttribute("href")) loadChannels();
+    if (session && selectedChannel === "telegram") { showConversation(); refreshChat(); }
+    selectChannel(selectedChannel === "telegram", focus);
   }
 
   launcher.addEventListener("click", () => setOpen(!panel.classList.contains("is-open")));
