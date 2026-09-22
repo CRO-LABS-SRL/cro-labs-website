@@ -4,7 +4,7 @@ Sito aziendale con widget chat collegato a Telegram.
 
 ## Avvio locale
 
-Richiede Node.js 18 o superiore.
+Richiede Node.js 24.x. Con nvm, eseguire `nvm install` e `nvm use` dalla cartella del progetto.
 
 ```bash
 npm install
@@ -18,7 +18,13 @@ Il sito sara disponibile su `http://localhost:3000`.
 
 L'app Node e il database MySQL/MariaDB girano sullo stesso host.
 
-- Build Command: `npm install`
+- Node.js Version: `24.x` (selezionarla anche nel pannello Hostinger)
+- Framework: `Other`
+- Root Directory: `.`
+- Build Command: `None` (nessuna compilazione richiesta)
+- Package Manager: `npm`
+- Output Directory: `.`
+- Entry File: `server.js`
 - Start Command: `npm start`
 - Health Check Path: `/health` (restituisce `"database": true` solo se la connessione al DB funziona davvero)
 
