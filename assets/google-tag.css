@@ -1,0 +1,46 @@
+#cro-cookie-banner {
+  position: fixed;
+  bottom: 1rem;
+  left: 1rem;
+  right: 1rem;
+  z-index: 10000;
+  max-width: 760px;
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  padding: 1.25rem;
+  border: 1px solid #b4c4d4;
+  border-radius: 16px;
+  background: #0f2034;
+  color: #f4f2ea;
+  box-shadow: 0 8px 32px #0008;
+  font: 0.9rem/1.6 "Manrope", sans-serif;
+}
+#cro-cookie-banner[hidden] { display: none; }
+#cro-cookie-banner p { margin: 0 0 1rem; }
+#cro-cookie-banner a { color: #f6b73c; text-decoration: underline; }
+#cro-cookie-banner > div { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+#cro-cookie-banner button {
+  flex: 1 1 180px;
+  padding: 0.65rem 1rem;
+  border: 1px solid #f6b73c;
+  border-radius: 8px;
+  background: #0f2034;
+  color: #f4f2ea;
+  font: inherit;
+  cursor: pointer;
+}
+.cro-cookie-preferences {
+  display: block;
+  margin: 0.75rem auto;
+  padding: 0.5rem;
+  border: 0;
+  background: transparent;
+  color: #f6b73c;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+#cro-cookie-banner button:focus-visible, .cro-cookie-preferences:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}

@@ -100,6 +100,7 @@ function serveAsset(response, pathname) {
   const relative = pathname.slice("/assets/".length);
   const filePath = path.normalize(path.join(assetsDir, relative));
   const mimeTypes = {
+    ".js": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
     ".jpeg": "image/jpeg",
     ".jpg": "image/jpeg",

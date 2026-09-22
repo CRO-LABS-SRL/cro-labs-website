@@ -2,6 +2,8 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
+  <link rel="stylesheet" href="/assets/google-tag.css">
+  <script defer src="/assets/google-tag.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Privacy e Cookie Policy — CRO Labs</title>
   <meta name="description" content="Informativa sul trattamento dei dati personali e sugli strumenti tecnici utilizzati dal sito CRO Labs.">
@@ -139,22 +141,25 @@
 
       <section>
         <h2>4. Cookie e archiviazione nel browser</h2>
-        <p>Il codice del sito non installa attualmente cookie pubblicitari, di profilazione o di analisi statistica. Utilizza però i seguenti strumenti tecnici, necessari a mantenere la chat durante la navigazione:</p>
+        <p>Il sito utilizza strumenti tecnici per mantenere la chat durante la navigazione e ricordare la scelta sui cookie. Solo dopo aver selezionato “Accetta misurazione” viene caricato il tag Google Ads (AW-18450825976) per misurare i risultati delle campagne pubblicitarie. La personalizzazione pubblicitaria resta disattivata. Puoi rifiutare o modificare la scelta dal pulsante “Preferenze cookie” in fondo a ogni pagina.</p>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Strumento</th><th>Tipo</th><th>Finalità</th><th>Durata</th></tr></thead>
             <tbody>
+              <tr><td><code>croLabsAdsConsent</code></td><td>localStorage</td><td>Ricorda l'accettazione o il rifiuto della misurazione pubblicitaria.</td><td>Scelta valida per 180 giorni.</td></tr>
               <tr><td><code>croLabsChatSession</code></td><td>localStorage</td><td>Conserva identificativo e token della conversazione per mostrare messaggi e risposte nelle diverse pagine.</td><td>Fino alla cancellazione dei dati del browser o all'invalidazione della sessione.</td></tr>
               <tr><td><code>croLabsChatOpen</code></td><td>sessionStorage</td><td>Ricorda se il pannello della chat è aperto durante la navigazione.</td><td>Durata della scheda o sessione del browser.</td></tr>
             </tbody>
           </table>
         </div>
         <p>Questi strumenti non vengono usati per pubblicità o profilazione. Possono essere rimossi tramite le impostazioni del browser; la rimozione della sessione locale può impedire di recuperare la conversazione già avviata.</p>
+        <p>Dopo il consenso, Google Ads può utilizzare cookie di misurazione pubblicitaria e trattare informazioni sulla navigazione e sulle interazioni con gli annunci. Per maggiori informazioni consulta <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener">le informazioni di Google sulle tecnologie pubblicitarie</a>. Il rifiuto impedisce il caricamento del tag nelle visite successive; i cookie già presenti possono essere eliminati dalle impostazioni del browser.</p>
       </section>
 
       <section>
         <h2>5. Servizi e destinatari tecnici</h2>
         <ul>
+          <li><strong>Google Ads</strong>, esclusivamente dopo il consenso alla misurazione delle campagne;</li>
           <li><strong>Hostinger</strong>, per hosting, infrastruttura, database e servizi relativi ai domini;</li>
           <li><strong>Telegram</strong>, per ricevere e gestire i messaggi della chat e le notifiche operative;</li>
           <li><strong>Resend</strong>, per l'invio delle email dal sito e dei codici di verifica;</li>

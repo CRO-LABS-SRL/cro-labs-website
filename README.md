@@ -57,6 +57,13 @@ La pagina `/privacy-cookie.html` descrive i trattamenti e gli strumenti tecnici 
 Il relativo link compare nei footer, vicino ai moduli e nella chat. Aggiornare l'informativa prima di
 aggiungere Google Analytics, pixel pubblicitari o nuovi fornitori che trattano dati dei visitatori.
 
+Il tag Google Ads `AW-18450825976` è integrato in tutte le pagine pubbliche tramite
+`assets/google-tag.js`. Il banner carica il tag solo dopo il consenso alla misurazione
+(Consent Mode di base); analytics e personalizzazione pubblicitaria restano disattivati.
+La scelta è valida per 180 giorni e modificabile da “Preferenze cookie” nel footer.
+Il tag base non definisce eventi di conversione: per aggiungerli servono l'azione da
+misurare e la relativa etichetta Google Ads, oppure una conversione configurata per URL.
+
 Manrope e Space Grotesk sono serviti localmente tramite `/assets/fonts.css`; i file WOFF2 e le licenze
 SIL Open Font License sono conservati in `assets/fonts/`. Le pagine non contattano Google Fonts.
 
