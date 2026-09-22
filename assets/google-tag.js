@@ -69,7 +69,7 @@
     } catch (_) { /* The choice still applies to this page. */ }
     window.gtag('consent', 'update', consent(choice));
     banner.hidden = true;
-    preferences.focus();
+    preferences.focus({ preventScroll: true });
     if (choice) loadTag();
     else if (loaded) window.location.reload();
   });

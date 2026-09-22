@@ -45,7 +45,7 @@
     button.disabled = false;
     button.textContent = message;
     window.setTimeout(() => {
-      if (button.isConnected && !button.disabled) button.textContent = "Mostra numero";
+      if (button.isConnected && !button.disabled) button.textContent = button.dataset.phoneLabel || "Mostra numero";
     }, 4000);
   }
 
@@ -61,13 +61,24 @@
     }
     const link = document.createElement("a");
     link.className = button.className;
-    link.href = result.href;
-    link.textContent = result.display;
-    link.setAttribute("aria-label", `Chiama ${result.display}`);
+    if (button.dataset.phoneChannel === "whatsapp") {
+      const number = result.href.replace(/^tel:/, "").replace(/\D/g, "");
+      if (!/^\d{7,15}$/.test(number)) throw new Error("Numero WhatsApp non disponibile.");
+      link.href = `https://wa.me/${number}?text=${encodeURIComponent("Ciao CRO Labs! Vorrei informazioni per il sito web della mia attività a Capri o Anacapri.")}`;
+      link.textContent = "Apri WhatsApp ↗";
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.setAttribute("aria-label", "Contatta CRO Labs su WhatsApp");
+    } else {
+      link.href = result.href;
+      link.textContent = result.display;
+      link.setAttribute("aria-label", `Chiama ${result.display}`);
+    }
     button.replaceWith(link);
   }
 
   buttons.forEach((button) => {
+    button.dataset.phoneLabel = button.textContent;
     button.addEventListener("click", async () => {
       if (button.disabled) return;
       button.disabled = true;

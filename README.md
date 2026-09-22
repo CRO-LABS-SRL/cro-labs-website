@@ -49,6 +49,20 @@ Variabili d'ambiente da impostare:
 
 Non inserire mai il token direttamente in `index.html` e non salvarlo nel repository.
 
+## Landing Google Ads: Capri e Anacapri
+
+La pagina `/servizi/siti-web-capri.html` è dedicata alla realizzazione di siti web per
+le attività dell'isola. Usa il tag Google e il consenso condivisi, la chat Telegram
+e il modulo `/api/contact` (richiede `RESEND_API_KEY`, `CONTACT_TO_EMAIL` e il mittente
+`EMAIL_FROM` già usati dal sito). Le email riportano l'origine della landing nel messaggio.
+
+Il pulsante WhatsApp usa `CONTACT_PHONE` tramite la stessa verifica Turnstile del
+telefono: dopo la verifica mostra il link “Apri WhatsApp” con testo precompilato.
+Il numero deve essere in formato internazionale e abilitato a WhatsApp. Nessun
+messaggio WhatsApp viene inviato automaticamente. Servono anche le variabili
+Turnstile descritte sotto. La conversione Google Ads della chat richiede ancora
+la relativa etichetta di conversione prima di poter essere attivata.
+
 ## Protezione del numero di telefono
 
 I pulsanti **Mostra numero** caricano Cloudflare Turnstile solo al clic. Il browser invia il token
