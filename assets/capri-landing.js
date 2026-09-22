@@ -13,7 +13,8 @@
     button.disabled = true;
     status.textContent = 'Invio in corso…';
     const payload = Object.fromEntries(new FormData(form));
-    payload.message = '[Landing: siti web Capri e Anacapri]\n\n' + payload.message;
+    const source = form.dataset.campaign || 'siti web Capri e Anacapri';
+    payload.message = '[Landing: ' + source + ']\n\n' + payload.message;
     try {
       const response = await fetch('/api/contact', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },

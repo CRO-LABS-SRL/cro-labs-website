@@ -738,3 +738,30 @@ em {
 #cro-cookie-banner p {
   color:#f4f2ea;
 }
+
+/* Variante promozionale One Page. */
+.promo-offer {
+  margin-top: 24px;
+  padding: 22px;
+  border: 1px solid #b2c8b8;
+  border-radius: 6px;
+  background: #e7eee3;
+}
+.promo-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 3px;
+  background: var(--ink);
+  color: white;
+  font-size: .66rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+.promo-old { display: block; margin-top: 12px; font-size: .8rem; }
+.promo-price { display: block; font: 700 3.2rem/1.2 "Space Grotesk", sans-serif; letter-spacing: -.04em; }
+.promo-price small { font: 500 .75rem Manrope, sans-serif; letter-spacing: normal; }
+.promo-offer p { margin-top: 10px; font-size: .78rem; }
+.promo-offer a { display: inline-block; margin-top: 12px; font-size: .75rem; text-underline-offset: 4px; }
+.promo-page .hero { padding-top: 48px; padding-bottom: 48px; }
+.promo-page .hero .lead { margin-top: 20px; }
+.promo-page h1 { font-size: clamp(2.6rem, 4.7vw, 4rem); }
