@@ -236,6 +236,24 @@
       background: rgba(255, 255, 255, 0.03);
       font-size: 0.76rem;
     }
+    .mobile-app-preview {
+      margin: 0;
+      text-align: center;
+    }
+    .mobile-app-preview img {
+      display: block;
+      width: 100%;
+      max-width: 260px;
+      height: auto;
+      max-height: 460px;
+      object-fit: contain;
+      margin: 0 auto 1rem;
+      border-radius: 18px;
+    }
+    .mobile-app-preview figcaption {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
     .saas-preview {
       position: relative;
       overflow: hidden;
@@ -827,6 +845,41 @@
       </div>
     </section>
 
+    <section id="app-mobile" class="section" aria-label="App Android e iOS">
+      <div class="section-heading">
+        <div>
+          <span class="pill">App Android / iOS · In fase di test</span>
+          <h2>CroBookingSystem: le prenotazioni diventano un'app.</h2>
+        </div>
+        <p>
+          Il gestionale evolve in un'app per lavorare anche in movimento. Il progetto è ancora in fase di test:
+          qui puoi conoscere le funzioni e accedere al test Android già disponibile.
+        </p>
+      </div>
+      <div class="project-grid">
+        <article class="project-card">
+          <span class="project-tag">Noleggi e strutture ricettive</span>
+          <h3>CroBookingSystem</h3>
+          <p>Calendario, risorse, clienti e pagamenti in un unico strumento, per chi gestisce scooter, barche, camere e altre risorse prenotabili.</p>
+          <ul>
+            <li>Prenotazioni e disponibilità consultabili dallo smartphone.</li>
+            <li>Gestione di acconti, extra e saldo per ogni prenotazione.</li>
+            <li>Calendario offline e promemoria per le attività quotidiane.</li>
+          </ul>
+          <div class="portfolio-details" aria-label="Stato dell'app CroBookingSystem">
+            <span>In fase di test</span>
+            <span>Test Android disponibile</span>
+            <span>iOS · Link di test non ancora disponibile</span>
+          </div>
+          <a class="project-link" href="/servizi/cro-booking-system.html">Scopri l'app e il test Android &rarr;</a>
+        </article>
+        <figure class="project-card mobile-app-preview">
+          <img src="/assets/crobooking-calendar.jpeg" alt="Calendario delle prenotazioni di CroBookingSystem su smartphone" loading="lazy">
+          <figcaption>Una schermata della versione in test. Funzioni e interfaccia possono evolvere.</figcaption>
+        </figure>
+      </div>
+    </section>
+
     <section id="portfolio" class="section" aria-label="Portfolio CRO Labs">
       <div class="section-heading">
         <div>
@@ -839,20 +892,6 @@
       </div>
 
       <div class="portfolio-grid">
-        <article class="project-card portfolio-card">
-          <span class="project-tag">Noleggio · Gestionale multi-tenant</span>
-          <h3>CroBookingSystem</h3>
-          <p>
-            Un gestionale di prenotazioni per scooter, barche, camere e attività di noleggio: calendario mobile, risorse, clienti, pagamenti e promemoria in un'unica piattaforma.
-          </p>
-          <div class="portfolio-details" aria-label="Caratteristiche CroBookingSystem">
-            <span>Test pubblico Android</span>
-            <span>Calendario offline</span>
-            <span>Gestione pagamenti</span>
-          </div>
-          <a class="project-link" href="/servizi/cro-booking-system.html">Scopri CroBookingSystem &rarr;</a>
-        </article>
-
         <article class="project-card portfolio-card">
           <span class="project-tag">Gaming · Web app multilingua</span>
           <h3>Last Asylum</h3>
